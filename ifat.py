@@ -22,21 +22,56 @@
 
 from brian2 import *
 
-ifat_mn_eq = '''
-    dVmem/dt  = (glm / Cm) * (V_r - Vmem)      : volt
-    dtheta/dt = (glt / Ct) * (theta_r - theta) : volt
-    
-    glm = flm * Cl                             : siemens
-    glt = flt * Cl                             : siemens
-'''
+MODE = 'adaptive'
 
-ifat_syn_eq = '''
-    Vsyn = ((W/Cm)*(Em - Vmem)) : volt
-    Em         : volt
-    W          : farad
-    num_events : 1
-'''
+# +
+# Define various equations
 
+if MODE == 'adaptive':
+    neuron_eq = '''
+        dVm/dt = (glm / Cm) * (Vm_r - Vm) : volt
+        dVt/dt = (glt / Ct) * (Vt_r - Vt) : volt
+
+        glm = flm * Cl                    : siemens
+        glt = flt * Cl                    : siemens
+    '''
+    reset_eq = '''
+        Vm = Vm_r
+        Vt = Vt * (Vt > Vm) + Vt_r * (Vt <= Vm)
+    '''
+    presyn_eq = '''
+        Vm_old = Vm
+        Vm = Vm_old + Vsyn
+        Vt += (Cst/Ct) * (Vm_old - Vm_r)
+    '''
+else:
+    neuron_eq = '''
+        dVm/dt = (glm / Cm) * (Vm_r - Vm) : volt
+
+        glm = flm * Cl                    : siemens
+    '''
+    reset_eq = '''
+        Vm = Vm_r
+    '''
+    presyn_eq = '''
+        Vm_old = Vm
+        Vm = Vm_old + Vsyn
+    '''
+
+# Synapse equation is the same for both modes!
+syn_eq = '''
+    Vsyn = (W/Cm)*(Em - Vm) : volt
+    Em                      : volt
+    W                       : farad
+'''
+# -
+
+# IFAT specific definitions
+W_vals  = np.array([5, 10, 20, 40, 80]) * 0.001 * pF
+Em_vals = np.array([0, 1/3, 2/3, 1]) * Vdd * volt
+
+
+Vdd = 5 * volt
 Cm = Ct = 0.44 * pF
 Cl = 0.02 * pF
 V_r = 1 * volt
@@ -45,8 +80,6 @@ flm = 10 * kHz
 flt = 0.2 * MHz
 Csm = 0.05 * pF
 Cst = 0.00 * pF
-theta_max = 5*volt
-Eext = 0.66*5 * volt
 
 test = NeuronGroup(6, ifat_mn_eq, threshold='Vmem>theta',
                    reset='''
@@ -59,7 +92,7 @@ spgen = SpikeGeneratorGroup(1,[0],[100*ms])
 insyn = Synapses(spgen, test, ifat_syn_eq,
               on_pre='''
                       Vmem_old = Vmem
-                      Vmem = Vmem_old + ((W/Cm)*(Em - Vmem_old))
+                      Vmem = Vmem_old + Vsyn
                       theta+=(Cst/Ct)*(Vmem_old - V_r)''',multisynaptic_index='k')
 
 insyn.connect(i=0,j=0,n=100)
