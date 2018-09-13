@@ -15,12 +15,17 @@
 #     name: python
 #     nbconvert_exporter: python
 #     pygments_lexer: ipython3
-#     version: 3.6.4
+#     version: 3.6.0
 # ---
 
 # # Development Notebook for IFAT Simulator
 
+# +
 from brian2 import *
+import matplotlib.pyplot as plt
+
+# %matplotlib inline
+# -
 
 MODE = 'adaptive'
 
@@ -64,63 +69,58 @@ syn_eq = '''
     Em                      : volt
     W                       : farad
 '''
-# -
 
+# +
 # IFAT specific definitions
-W_vals  = np.array([5, 10, 20, 40, 80]) * 0.001 * pF
-Em_vals = np.array([0, 1/3, 2/3, 1]) * Vdd * volt
-
-
 Vdd = 5 * volt
 Cm = Ct = 0.44 * pF
 Cl = 0.02 * pF
-V_r = 1 * volt
-theta_r = 3 * volt
-flm = 10 * kHz
-flt = 0.2 * MHz
-Csm = 0.05 * pF
-Cst = 0.00 * pF
 
-test = NeuronGroup(6, ifat_mn_eq, threshold='Vmem>theta',
-                   reset='''
-                           Vmem=V_r
-                           theta=theta*(theta>Vmem)+theta_r*(theta<=Vmem)''',
-                  method='exact')
+W_vals  = np.array([5, 10, 20, 40, 80]) * 0.001 * pF
+Em_vals = np.array([0, 1/3, 2/3, 1]) * Vdd
+
+
+# +
+# Model parameters
+Vm_r = 1 * volt
+flm  = 10 * kHz
+Csm  = W_vals[0]
+
+Vt_r = 3 * volt
+flt  = 0.2 * MHz
+Cst  = 0 * pF
+
+N = 4
+# -
+
+start_scope()
+
+# Start
+test = NeuronGroup(N, neuron_eq, threshold='Vm >Vt', reset=reset_eq, method='exact')
+test.Vm = Vm_r
+test.Vt = Vt_r
 
 spgen = SpikeGeneratorGroup(1,[0],[100*ms])
 
-insyn = Synapses(spgen, test, ifat_syn_eq,
-              on_pre='''
-                      Vmem_old = Vmem
-                      Vmem = Vmem_old + Vsyn
-                      theta+=(Cst/Ct)*(Vmem_old - V_r)''',multisynaptic_index='k')
-
-insyn.connect(i=0,j=0,n=100)
-insyn.delay='0.2*us+k*0.2*us'
-insyn.Em = '0.33*5 * volt'
-insyn.W = Csm
-
-vcosyn = Synapses(test,test,ifat_syn_eq,
-                  on_pre='''
-                      Vmem_old = Vmem
-                      Vmem = Vmem_old + ((W/Cm)*(Em - Vmem_old))
-                      theta+=(Cst/Ct)*(Vmem_old - V_r)''')
-vcosyn.connect('j==((i+1)%6)')
-vcosyn.Em = '4*volt'
-vcosyn.W = 30 * Csm
+# +
+# insyn = Synapses(spgen, test, syn_eq, on_pre=presyn_eq, multisynaptic_index='k')
+# insyn.connect(i=0,j=0,n=100)
+# insyn.delay='0.2*us+k*0.2*us'
+# insyn.Em = Em_vals[1]
+# insyn.W = Csm
 
 # +
-import matplotlib.pyplot as plt
-
-# %matplotlib inline
+# exc_syn = Synapses(test, test, syn_eq, on_pre=presyn_eq)
+# exc_syn.connect('j==((i+1)%6)')
+# exc_syn.Em = '4*volt'
+# exc_syn.W = 30 * Csm
 # -
 
-test.Vmem = V_r
-test.theta = theta_r
 
-mon  = SpikeMonitor(test)
-vmon = StateMonitor(test, 'Vmem', record=True)
-tmon = StateMonitor(test,'theta',record=True)
+
+sp_mon = SpikeMonitor(test)
+vm_mon = StateMonitor(test, 'Vmem', record=True)
+vt_mon = StateMonitor(test,'theta',record=True)
 
 # + {"scrolled": false}
 run(1*second)
