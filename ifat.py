@@ -15,7 +15,7 @@
 #     name: python
 #     nbconvert_exporter: python
 #     pygments_lexer: ipython3
-#     version: 3.6.0
+#     version: 3.6.4
 # ---
 
 # # Development Notebook for IFAT Simulator
@@ -34,11 +34,13 @@ MODE = 'adaptive'
 
 if MODE == 'adaptive':
     neuron_eq = '''
+        # dVm/dt = ((glm + parasitic) / Cm) * (Vm_r - Vm) : volt
         dVm/dt = (glm / Cm) * (Vm_r - Vm) : volt
         dVt/dt = (glt / Ct) * (Vt_r - Vt) : volt
 
         glm = flm * Cl                    : siemens
         glt = flt * Cl                    : siemens
+        # parasitic = 1.0 / parasitic_leak_time * Cm
     '''
     reset_eq = '''
         Vm = Vm_r
@@ -79,11 +81,10 @@ Cl = 0.02 * pF
 W_vals  = np.array([5, 10, 20, 40, 80]) * 0.001 * pF
 Em_vals = np.array([0, 1/3, 2/3, 1]) * Vdd
 
-
 # +
 # Model parameters
 Vm_r = 1 * volt
-flm  = 10 * kHz
+flm  = 0 * kHz
 Csm  = W_vals[0]
 
 Vt_r = 3 * volt
@@ -95,12 +96,44 @@ N = 4
 
 start_scope()
 
-# Start
-test = NeuronGroup(N, neuron_eq, threshold='Vm >Vt', reset=reset_eq, method='exact')
+# Start stuff up, brochacho
+test = NeuronGroup(N, neuron_eq, threshold='Vm > Vt', reset=reset_eq, method='exact')
 test.Vm = Vm_r
 test.Vt = Vt_r
 
-spgen = SpikeGeneratorGroup(1,[0],[100*ms])
+in_spk_times = np.arange(0,1,0.01) * second
+in_spk_inds  = np.zeros_like(in_spk_times)
+spgen = SpikeGeneratorGroup(1,in_spk_inds,in_spk_times)
+
+insyn = Synapses(spgen, test, syn_eq, on_pre=presyn_eq)
+insyn.connect()
+insyn.delay = "j * 0.2 * us"
+insyn.Em = Em_vals[-1]
+insyn.W = sum(W_vals)
+
+# +
+def visualise_connectivity(S):
+    Ns = len(S.source)
+    Nt = len(S.target)
+    figure(figsize=(10, 4))
+    subplot(121)
+    plot(zeros(Ns), arange(Ns), 'ok', ms=10)
+    plot(ones(Nt), arange(Nt), 'ok', ms=10)
+    for i, j in zip(S.i, S.j):
+        plot([0, 1], [i, j], '-k')
+    xticks([0, 1], ['Source', 'Target'])
+    ylabel('Neuron index')
+    xlim(-0.1, 1.1)
+    ylim(-1, max(Ns, Nt))
+    subplot(122)
+    plot(S.i, S.j, 'ok')
+    xlim(-1, Ns)
+    ylim(-1, Nt)
+    xlabel('Source neuron index')
+    ylabel('Target neuron index')
+
+visualise_connectivity(insyn)
+
 
 # +
 # insyn = Synapses(spgen, test, syn_eq, on_pre=presyn_eq, multisynaptic_index='k')
@@ -115,22 +148,19 @@ spgen = SpikeGeneratorGroup(1,[0],[100*ms])
 # exc_syn.Em = '4*volt'
 # exc_syn.W = 30 * Csm
 # -
-
-
-
 sp_mon = SpikeMonitor(test)
-vm_mon = StateMonitor(test, 'Vmem', record=True)
-vt_mon = StateMonitor(test,'theta',record=True)
+vm_mon = StateMonitor(test, 'Vm', record=True)
+vt_mon = StateMonitor(test, 'Vt', record=True)
 
-# + {"scrolled": false}
+# + {"scrolled": true}
 run(1*second)
 
 # + {"scrolled": true}
-for i in range(6):
-    plot(vmon.t, vmon.Vmem[i],tmon.t, tmon.theta[i])
-# -
+for i in range(N):
+    plot(vm_mon.t, vm_mon.Vm[i],vt_mon.t, vt_mon.Vt[i])
 
-plot(vmon.t, vmon.Vmem[0],tmon.t, tmon.theta[0]);xlim([0.099,0.11])
+# + {"scrolled": true}
+plot(vm_mon.t, vm_mon.Vm[0],vt_mon.t, vt_mon.Vt[0]); xlim([0,0.01])
 
 # + {"scrolled": true}
 for i in range(6):
