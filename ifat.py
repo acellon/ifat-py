@@ -15,7 +15,7 @@
 #     name: python
 #     nbconvert_exporter: python
 #     pygments_lexer: ipython3
-#     version: 3.6.0
+#     version: 3.6.4
 # ---
 
 # # Development Notebook for IFAT Simulator
@@ -122,47 +122,47 @@ N = 4
 # -
 
 start_scope()
+defaultclock.dt = 0.2 * us
 
 # Start stuff up, brochacho
 test = NeuronGroup(N, neuron_eq, threshold='Vm > Vt', reset=reset_eq, method='exact')
 test.Vm = Vm_r
 test.Vt = Vt_r
 
-start_spk_times = np.arange(0,0.05,0.002) * second
-start_spk_inds  = np.zeros_like(start_spk_times)
-#spgen = SpikeGeneratorGroup(1,in_spk_inds,in_spk_times)
+# +
+bg_rate = 6*kHz
+bg_spk_times = np.arange(0,0.1,Hz/bg_rate) * second
+bg_spk_inds  = np.zeros_like(bg_spk_times)
+#bg_spks = PoissonGroup(1,rates=bg_rate)
+bg_spks = SpikeGeneratorGroup(1,bg_spk_inds,bg_spk_times)
 
-in_spk_times = np.arange(0,1,0.0002) * second
-in_spk_inds  = np.zeros_like(in_spk_times)
-#spgen = PoissonGroup(1,rates=2*kHz)
-spgen = SpikeGeneratorGroup(1,in_spk_inds,in_spk_times)
+bg_syn = Synapses(bg_spks, test, syn_eq, on_pre=presyn_eq)
+bg_syn.connect()
+bg_syn.delay = "j * 0.2 * us"
+bg_syn.Em = Em_vals[2]
+bg_syn.W  = W_vals[3] + W_vals[2] + W_vals[0]
 
-insyn = Synapses(spgen, test, syn_eq, on_pre=presyn_eq)
-insyn.connect()
-insyn.delay = "j * 0.2 * us"
-insyn.Em = Em_vals[2]
-insyn.W = W_vals[3]# + W_vals[2] + W_vals[0]
+inp_rate = 5 * Hz
+inp_spk_times = np.arange(0,0.1,Hz/inp_rate) * second
+inp_spk_inds  = np.zeros_like(inp_spk_times)
+inp_spks = SpikeGeneratorGroup(1, inp_spk_inds, inp_spk_times)
 
-visualise_connectivity(insyn)
+inp_syn = Synapses(inp_spks, test, syn_eq, on_pre=presyn_eq)
+inp_syn.connect()
+inp_syn.Em = Em_vals[3]
+inp_syn.W  = sum(W_vals)
 
-startup = SpikeGeneratorGroup(1,start_spk_inds, start_spk_times)
-insyn2 = Synapses(startup, test, syn_eq, on_pre=presyn_eq)
-insyn2.connect(i=0, j=0)
-insyn2.Em = Em_vals[3]
-insyn2.W = sum(W_vals)
-
-# + {"scrolled": true}
 exc_syn = Synapses(test, test, syn_eq, on_pre=presyn_eq)
 exc_syn.connect('j==((i+1)%(4))')
-exc_syn.connect('j==i')
+#exc_syn.connect('j==i')
 exc_syn.Em = Em_vals[3]
-exc_syn.W = sum(W_vals) + W_vals[1]
-# -
+exc_syn.W  = sum(W_vals[0:2])
+
 inh_syn = Synapses(test, test, syn_eq, on_pre=presyn_eq)
 inh_syn.connect('j==((i+2)%4)')
 inh_syn.connect('j==((i+3)%4)')
 inh_syn.Em = Em_vals[0]
-inh_syn.W = sum(W_vals)*2
+inh_syn.W  = sum(W_vals)*2
 
 # +
 #visualise_connectivity(inh_syn)
@@ -172,24 +172,26 @@ inh_syn.W = sum(W_vals)*2
 # -
 
 sp_mon = SpikeMonitor(test)
-vm_mon = StateMonitor(test, 'Vm', record=True)
-vt_mon = StateMonitor(test, 'Vt', record=True)
+vm_mon = StateMonitor(test, 'Vm', record=True, dt=0.1*ms)
+vt_mon = StateMonitor(test, 'Vt', record=True, dt=0.1*ms)
 ratemon = PopulationRateMonitor(test)
 
-# + {"scrolled": true}
-run(1*second)
+# + {"scrolled": false}
+run(100*ms,report='text')
 
 # + {"scrolled": true}
 for i in range(N):
-    plot(vm_mon.t, vm_mon.Vm[i],vt_mon.t, vt_mon.Vt[i])
-xlim([0,0.2])
+    plot(vm_mon.t/ms, vm_mon.Vm[i]/volt,vt_mon.t/ms, vt_mon.Vt[i]/volt)
+xlim([0,100])
 
 # + {"scrolled": true}
-plot(vm_mon.t, vm_mon.Vm[2]/volt,vt_mon.t, vt_mon.Vt[0]/volt); xlim([0,0.2]);
+plot(vm_mon.t, vm_mon.Vm[1]/volt,vt_mon.t, vt_mon.Vt[0]/volt); xlim([0,0.1]);
+plot(sp_mon.t, sp_mon.i*3,'.k')
+ylim([0,4])
 # -
 
-plot(sp_mon.t, sp_mon.i, '.'); xlim([0,1]); ylim([-1, N+1])
+plot(sp_mon.t, sp_mon.i, '.g'); #xlim([0.062,0.082]);
 
-plot(ratemon.t/ms, ratemon.smooth_rate(width=20*ms)/Hz)
+plot(ratemon.t/ms, ratemon.smooth_rate(width=10*ms)/Hz)
 
 
