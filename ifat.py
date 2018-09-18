@@ -15,7 +15,7 @@
 #     name: python
 #     nbconvert_exporter: python
 #     pygments_lexer: ipython3
-#     version: 3.6.4
+#     version: 3.6.0
 # ---
 
 # # Development Notebook for IFAT Simulator
@@ -27,7 +27,7 @@ import matplotlib.pyplot as plt
 # %matplotlib inline
 # -
 
-def visualise_connectivity(S):
+def visualize_connectivity(S):
     Ns = len(S.source)
     Nt = len(S.target)
     figure(figsize=(10, 4))
@@ -142,14 +142,14 @@ bg_syn.delay = "j * 0.2 * us"
 bg_syn.Em = Em_vals[2]
 bg_syn.W  = W_vals[3] + W_vals[2] + W_vals[0]
 
-inp_rate = 5 * Hz
+inp_rate = 500 * Hz
 inp_spk_times = np.arange(0,0.1,Hz/inp_rate) * second
 inp_spk_inds  = np.zeros_like(inp_spk_times)
 inp_spks = SpikeGeneratorGroup(1, inp_spk_inds, inp_spk_times)
 
 inp_syn = Synapses(inp_spks, test, syn_eq, on_pre=presyn_eq)
 inp_syn.connect()
-inp_syn.Em = Em_vals[3]
+inp_syn.Em = Em_vals[2]
 inp_syn.W  = sum(W_vals)
 
 exc_syn = Synapses(test, test, syn_eq, on_pre=presyn_eq)
@@ -165,10 +165,10 @@ inh_syn.Em = Em_vals[0]
 inh_syn.W  = sum(W_vals)*2
 
 # +
-#visualise_connectivity(inh_syn)
+#visualize_connectivity(inh_syn)
 
 # +
-#visualise_connectivity(exc_syn)
+#visualize_connectivity(exc_syn)
 # -
 
 sp_mon = SpikeMonitor(test)
@@ -193,5 +193,7 @@ ylim([0,4])
 plot(sp_mon.t, sp_mon.i, '.g'); #xlim([0.062,0.082]);
 
 plot(ratemon.t/ms, ratemon.smooth_rate(width=10*ms)/Hz)
+
+len(sp_mon.i[sp_mon.i==0])
 
 
