@@ -15,7 +15,7 @@
 #     name: python
 #     nbconvert_exporter: python
 #     pygments_lexer: ipython3
-#     version: 3.6.0
+#     version: 3.6.4
 # ---
 
 # # Development Notebook for IFAT Simulator
@@ -142,15 +142,15 @@ bg_syn.delay = "j * 0.2 * us"
 bg_syn.Em = Em_vals[2]
 bg_syn.W  = W_vals[3] + W_vals[2] + W_vals[0]
 
-inp_rate = 500 * Hz
-inp_spk_times = np.arange(0,0.1,Hz/inp_rate) * second
-inp_spk_inds  = np.zeros_like(inp_spk_times)
-inp_spks = SpikeGeneratorGroup(1, inp_spk_inds, inp_spk_times)
+# inp_rate = 500 * Hz
+# inp_spk_times = np.arange(0,0.1,Hz/inp_rate) * second
+# inp_spk_inds  = np.zeros_like(inp_spk_times)
+# inp_spks = SpikeGeneratorGroup(1, inp_spk_inds, inp_spk_times)
 
-inp_syn = Synapses(inp_spks, test, syn_eq, on_pre=presyn_eq)
-inp_syn.connect()
-inp_syn.Em = Em_vals[2]
-inp_syn.W  = sum(W_vals)
+# inp_syn = Synapses(inp_spks, test, syn_eq, on_pre=presyn_eq)
+# inp_syn.connect()
+# inp_syn.Em = Em_vals[2]
+# inp_syn.W  = sum(W_vals)
 
 exc_syn = Synapses(test, test, syn_eq, on_pre=presyn_eq)
 exc_syn.connect('j==((i+1)%(4))')
@@ -195,5 +195,118 @@ plot(sp_mon.t, sp_mon.i, '.g'); #xlim([0.062,0.082]);
 plot(ratemon.t/ms, ratemon.smooth_rate(width=10*ms)/Hz)
 
 len(sp_mon.i[sp_mon.i==0])
+
+# ## Trying the Zilli & Hasselmo Approach
+# Above, we're able to get a sort of ring oscillator concept working. Below, we'll try the Zilli and Hasselmo approach of coupling "noisy cells" to form an oscillator (where we work out the interpolated Frequency/Input curve to find the necessary inputs)
+
+start_scope()
+
+zilli = NeuronGroup(100, neuron_eq, threshold='Vm>Vt', reset=reset_eq, method='exact')
+
+zilli.Vm = Vm_r
+zilli.Vt = Vt_r
+
+zilli_syn = Synapses(zilli, zilli, syn_eq, on_pre=presyn_eq)
+zilli_syn.connect()
+zilli_syn.Em = Em_vals[3]
+zilli_syn.W = sum(W_vals)
+
+# +
+stim_rate = 300*Hz
+stim_spk_times = np.arange(0,0.2,Hz/stim_rate) * second
+stim_spk_inds  = np.zeros_like(stim_spk_times)
+#stim_spks = PoissonGroup(1,rates=stim_rate)
+stim_spks = SpikeGeneratorGroup(1,stim_spk_inds,stim_spk_times)
+
+stim_syn = Synapses(stim_spks, zilli, syn_eq, on_pre=presyn_eq)
+stim_syn.connect()
+stim_syn.delay = "j * 0.2 * us"
+stim_syn.Em = Em_vals[3]
+stim_syn.W  = W_vals[3] + W_vals[2] + W_vals[0]
+# -
+
+zspmon = SpikeMonitor(zilli)
+zmon = PopulationRateMonitor(zilli)
+
+run(0.2*second, report='text')
+
+subplot(121)
+plot(zspmon.t/ms, zspmon.i,'.')
+subplot(122)
+plot(zmon.t/ms, zmon.smooth_rate(width=10*ms))
+
+# ## Trying the *Other* Tad Blair approach
+
+def calc_weight(M, alpha, mu, sigma):
+    output = zeros((M,M))
+    for i in np.arange(M):
+        for j in np.arange(M):
+            output[i,j] = exp(cos((2*pi*i/M) - (2*pi*j/M) - mu)/sigma**2)
+    output = output * (alpha/np.max(output))
+    output = 5.0 * fF * np.around(output/(5.0*fF))
+    return output
+
+M = 108
+alpha = sum(W_vals)
+mu1 = 0
+mu2 = 2*pi/3
+sigma = 27 * pi/180
+fF = 0.001 * pF
+
+check = calc_weight(M,alpha,mu1,sigma)
+
+check[10,1]
+
+start_scope()
+
+defaultclock.dt = 0.1* ms
+
+blair_exc = NeuronGroup(M, neuron_eq, threshold='Vm>Vt', reset=reset_eq, method='exact')
+blair_inh = NeuronGroup(M, neuron_eq, threshold='Vm>Vt', reset=reset_eq, method='exact')
+
+blair_exc.Vt = Vt_r
+blair_inh.Vt = Vt_r
+blair_exc.Vm = Vm_r
+blair_inh.Vm = Vm_r
+
+# +
+exc2inh = Synapses(blair_exc, blair_inh, syn_eq, on_pre=presyn_eq)
+exc2inh.connect()
+exc2inh.Em = Em_vals[2]
+
+exc2inh.W = calc_weight(M,alpha,mu1,sigma).flatten()
+# -
+
+inh2exc = Synapses(blair_inh, blair_exc, syn_eq, on_pre=presyn_eq)
+inh2exc.connect()
+inh2exc.Em = Em_vals[0]
+inh2exc.W  = calc_weight(M,alpha,mu2,sigma).flatten()
+
+inh2inh = Synapses(blair_inh, blair_inh, syn_eq, on_pre=presyn_eq)
+inh2inh.connect()
+inh2inh.Em = Em_vals[0]
+inh2inh.W = calc_weight(M,alpha,mu1,sigma).flatten()
+
+PoisIn = PoissonGroup(M,rates=0.6*kHz)
+
+p2exc = Synapses(PoisIn, blair_exc, syn_eq, on_pre=presyn_eq)
+p2exc.connect('j==i')
+p2exc.Em = Em_vals[3]
+p2exc.W = sum(W_vals[0:3])
+
+i_spmon = SpikeMonitor(blair_inh)
+e_spmon = SpikeMonitor(blair_exc)
+e_vmon = StateMonitor(blair_exc, 'Vm', record=True)
+erate0 = PopulationRateMonitor(blair_exc[:1])
+erate1 = PopulationRateMonitor(blair_exc[1:2])
+erate10 = PopulationRateMonitor(blair_exc[10:11])
+erate20 = PopulationRateMonitor(blair_exc[20:21])
+irate = PopulationRateMonitor(blair_inh)
+
+run(5*second,report='text')
+
+plot(e_spmon.t/ms, e_spmon.i,'.');xlim([2000,2500])
+
+
 
 
