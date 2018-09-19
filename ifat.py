@@ -15,7 +15,7 @@
 #     name: python
 #     nbconvert_exporter: python
 #     pygments_lexer: ipython3
-#     version: 3.6.4
+#     version: 3.6.0
 # ---
 
 # # Development Notebook for IFAT Simulator
@@ -97,11 +97,12 @@ syn_eq = '''
 
 # +
 # IFAT specific definitions
+fF = 0.001 * pF
 Vdd = 5 * volt
-Cm = Ct = 0.44 * pF
-Cl = 0.02 * pF
+Cm = Ct = 440 * fF
+Cl = 2 * fF
 
-W_vals  = np.array([5, 10, 20, 40, 80]) * 0.001 * pF
+W_vals  = np.array([5, 10, 20, 40, 80]) * fF
 Em_vals = np.array([0, 1/3, 2/3, 1]) * Vdd
 
 par_ctrl = True
@@ -116,7 +117,7 @@ Csm  = W_vals[0]
 
 Vt_r = 3 * volt
 flt  = 0 * MHz
-Cst  = 0 * pF
+Cst  = 0 * fF
 
 N = 4
 # -
@@ -124,7 +125,7 @@ N = 4
 start_scope()
 defaultclock.dt = 0.2 * us
 
-# Start stuff up, brochacho
+# Start stuff up
 test = NeuronGroup(N, neuron_eq, threshold='Vm > Vt', reset=reset_eq, method='exact')
 test.Vm = Vm_r
 test.Vt = Vt_r
@@ -215,8 +216,8 @@ zilli_syn.W = sum(W_vals)
 stim_rate = 300*Hz
 stim_spk_times = np.arange(0,0.2,Hz/stim_rate) * second
 stim_spk_inds  = np.zeros_like(stim_spk_times)
-#stim_spks = PoissonGroup(1,rates=stim_rate)
-stim_spks = SpikeGeneratorGroup(1,stim_spk_inds,stim_spk_times)
+stim_spks = PoissonGroup(1,rates=stim_rate)
+#stim_spks = SpikeGeneratorGroup(1,stim_spk_inds,stim_spk_times)
 
 stim_syn = Synapses(stim_spks, zilli, syn_eq, on_pre=presyn_eq)
 stim_syn.connect()
@@ -246,20 +247,15 @@ def calc_weight(M, alpha, mu, sigma):
     output = 5.0 * fF * np.around(output/(5.0*fF))
     return output
 
-M = 108
+M = 64
 alpha = sum(W_vals)
 mu1 = 0
 mu2 = 2*pi/3
-sigma = 27 * pi/180
+mu3 = pi
+sigma = 25 * pi/180
 fF = 0.001 * pF
 
-check = calc_weight(M,alpha,mu1,sigma)
-
-check[10,1]
-
-start_scope()
-
-defaultclock.dt = 0.1* ms
+start_scope(); defaultclock.dt = 0.1*ms;
 
 blair_exc = NeuronGroup(M, neuron_eq, threshold='Vm>Vt', reset=reset_eq, method='exact')
 blair_inh = NeuronGroup(M, neuron_eq, threshold='Vm>Vt', reset=reset_eq, method='exact')
@@ -287,12 +283,12 @@ inh2inh.connect()
 inh2inh.Em = Em_vals[0]
 inh2inh.W = calc_weight(M,alpha,mu1,sigma).flatten()
 
-PoisIn = PoissonGroup(M,rates=0.6*kHz)
+PoisIn = PoissonGroup(M,rates=2.0*kHz)
 
 p2exc = Synapses(PoisIn, blair_exc, syn_eq, on_pre=presyn_eq)
 p2exc.connect('j==i')
 p2exc.Em = Em_vals[3]
-p2exc.W = sum(W_vals[0:3])
+p2exc.W = (W_vals[2])
 
 i_spmon = SpikeMonitor(blair_inh)
 e_spmon = SpikeMonitor(blair_exc)
@@ -300,13 +296,30 @@ e_vmon = StateMonitor(blair_exc, 'Vm', record=True)
 erate0 = PopulationRateMonitor(blair_exc[:1])
 erate1 = PopulationRateMonitor(blair_exc[1:2])
 erate10 = PopulationRateMonitor(blair_exc[10:11])
-erate20 = PopulationRateMonitor(blair_exc[20:21])
+erate20 = PopulationRateMonitor(blair_exc[13:14])
 irate = PopulationRateMonitor(blair_inh)
 
-run(5*second,report='text')
+run(1*second,report='text')
 
-plot(e_spmon.t/ms, e_spmon.i,'.');xlim([2000,2500])
+plot(e_spmon.t/second, e_spmon.i,'.'); xlim([0.2,0.4])
 
+figure(figsize=(14,4))
+subplot(131)
+scatter(exc2inh.i,exc2inh.j,s=exc2inh.W/(50*fF))
+plot(arange(M),arange(M),'--r')
+title(r'Excitatory $\rightarrow$ Inhibitory')
+subplot(132)
+scatter(inh2inh.i,inh2inh.j,s=inh2inh.W/(50*fF))
+plot(arange(M),arange(M),'--r')
+title(r'Inhibitory $\rightarrow$ Inhibitory')
+subplot(133)
+scatter(inh2exc.i,inh2exc.j,s=inh2exc.W/(50*fF))
+plot(arange(M),arange(M),'--r')
+title(r'Inhibitory $\rightarrow$ Excitatory')
+suptitle(r'Synaptic Weights (Blair et al., 2014)', fontsize=16, y=1.05)
+tight_layout()
 
+plot(e_vmon.t, e_vmon.Vm[0]); xlim([0.2,0.4])
+scatter(e_spmon.t[e_spmon.i==0],3.15*ones(len(e_spmon.t[e_spmon.i==0])),color='r')
 
 
