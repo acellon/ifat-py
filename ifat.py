@@ -283,7 +283,7 @@ inh2inh.connect()
 inh2inh.Em = Em_vals[0]
 inh2inh.W = calc_weight(M,alpha,mu1,sigma).flatten()
 
-PoisIn = PoissonGroup(M,rates=2.0*kHz)
+PoisIn = PoissonGroup(M,rates=2.6*kHz)
 
 p2exc = Synapses(PoisIn, blair_exc, syn_eq, on_pre=presyn_eq)
 p2exc.connect('j==i')
@@ -301,6 +301,7 @@ irate = PopulationRateMonitor(blair_inh)
 
 run(1*second,report='text')
 
+figure(figsize=(8,6))
 plot(e_spmon.t/second, e_spmon.i,'.'); xlim([0.2,0.4])
 
 figure(figsize=(14,4))
@@ -321,5 +322,7 @@ tight_layout()
 
 plot(e_vmon.t, e_vmon.Vm[0]); xlim([0.2,0.4])
 scatter(e_spmon.t[e_spmon.i==0],3.15*ones(len(e_spmon.t[e_spmon.i==0])),color='r')
+
+
 
 
