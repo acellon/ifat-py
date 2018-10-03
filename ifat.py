@@ -247,6 +247,8 @@ def calc_weight(M, alpha, mu, sigma):
     output = 5.0 * fF * np.around(output/(5.0*fF))
     return output
 
+Vm_r = 0.75 * volt
+Vt_r = 3.5*volt
 M = 64
 alpha = sum(W_vals)
 mu1 = 0
@@ -255,7 +257,7 @@ mu3 = pi
 sigma = 25 * pi/180
 fF = 0.001 * pF
 
-start_scope(); defaultclock.dt = 0.1*ms;
+start_scope();# defaultclock.dt = 0.1*ms;
 
 blair_exc = NeuronGroup(M, neuron_eq, threshold='Vm>Vt', reset=reset_eq, method='exact')
 blair_inh = NeuronGroup(M, neuron_eq, threshold='Vm>Vt', reset=reset_eq, method='exact')
@@ -268,7 +270,7 @@ blair_inh.Vm = Vm_r
 # +
 exc2inh = Synapses(blair_exc, blair_inh, syn_eq, on_pre=presyn_eq)
 exc2inh.connect()
-exc2inh.Em = Em_vals[2]
+exc2inh.Em = Em_vals[3]
 
 exc2inh.W = calc_weight(M,alpha,mu1,sigma).flatten()
 # -
@@ -297,12 +299,21 @@ erate0 = PopulationRateMonitor(blair_exc[:1])
 erate1 = PopulationRateMonitor(blair_exc[1:2])
 erate10 = PopulationRateMonitor(blair_exc[10:11])
 erate20 = PopulationRateMonitor(blair_exc[13:14])
-irate = PopulationRateMonitor(blair_inh)
+irate = PopulationRateMonitor(blair_inh[:1])
 
-run(1*second,report='text')
+run(10*second,report='text')
 
 figure(figsize=(8,6))
-plot(e_spmon.t/second, e_spmon.i,'.'); xlim([0.2,0.4])
+plot(e_spmon.t/second, e_spmon.i,'.'); #xlim([0.2,0.4])
+
+rateWidth = 200 * ms
+plot(erate0.t/second,   erate0.smooth_rate(width=rateWidth),
+     erate1.t/second,   erate1.smooth_rate(width=rateWidth),
+     erate10.t/second, erate10.smooth_rate(width=rateWidth),
+     erate20.t/second, erate20.smooth_rate(width=rateWidth))#,
+    # irate.t/second,     irate.smooth_rate(width=rateWidth))#
+
+plot(irate.t/second,irate.smooth_rate(width=100*ms))
 
 figure(figsize=(14,4))
 subplot(131)
@@ -321,7 +332,7 @@ suptitle(r'Synaptic Weights (Blair et al., 2014)', fontsize=16, y=1.05)
 tight_layout()
 
 plot(e_vmon.t, e_vmon.Vm[0]); xlim([0.2,0.4])
-scatter(e_spmon.t[e_spmon.i==0],3.15*ones(len(e_spmon.t[e_spmon.i==0])),color='r')
+scatter(e_spmon.t[e_spmon.i==0],3.65*ones(len(e_spmon.t[e_spmon.i==0])),color='r')
 
 
 
