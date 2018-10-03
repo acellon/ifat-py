@@ -176,82 +176,116 @@ p2exc.W = W_vals[2] + W_vals[0]# + W_vals[0]
 i_spmon = SpikeMonitor(blair_inh)
 e_spmon = SpikeMonitor(blair_exc)
 e_vmon = StateMonitor(blair_exc, 'Vm', record=True)
-erate0 = PopulationRateMonitor(blair_exc[:1])
-erate1 = PopulationRateMonitor(blair_exc[1:2])
-erate10 = PopulationRateMonitor(blair_exc[10:11])
-erate20 = PopulationRateMonitor(blair_exc[13:14])
-irate = PopulationRateMonitor(blair_inh[:1])
+erate00 = PopulationRateMonitor(blair_exc[:1])
+erate15 = PopulationRateMonitor(blair_exc[15:16])
+erate31 = PopulationRateMonitor(blair_exc[31:32])
+erate47 = PopulationRateMonitor(blair_exc[47:48])
+#irate = PopulationRateMonitor(blair_inh[:1])
 
 store()
 poissonRates = arange(2.0,4.0,0.1)*kHz
 
-print(poissonRates)
-
 # + {"scrolled": true}
 #rateOuts = zeros((4,20))
-eRates0 = []
-eRates1 = []
-eRates10 = []
-eRates20 = []
-# -
+eRates00 = []; eRates00b = []; eRates00c = []
+eRates15 = []; eRates15b = []; eRates15c = []
+eRates31 = []; eRates31b = []; eRates31c = []
+eRates47 = []; eRates47b = []; eRates47c = []
 
-for poissonRate in poissonRates:
-    restore()
-    PoisIn.rates = poissonRate
-    #print(PoisIn.rates)
-    run(8*second,report='text')
-    eRates0.append(erate0.smooth_rate(width=1000*ms))
-    eRates1.append(erate1.smooth_rate(width=1000*ms))
-    eRates10.append(erate10.smooth_rate(width=1000*ms))
-    eRates20.append(erate20.smooth_rate(width=1000*ms))
+# + {"scrolled": false}
+BrianLogger.suppress_hierarchy('brian2.codegen.generators.base')
+for thing in range(3):
+    for poissonRate in poissonRates:
+        restore()
+        PoisIn.rates = poissonRate
+        print(poissonRate)
+        run(8*second,report='text')
+        if thing == 0:
+            eRates00.append(erate00.smooth_rate(width=100*ms))
+            eRates15.append(erate15.smooth_rate(width=100*ms))
+            eRates31.append(erate31.smooth_rate(width=100*ms))
+            eRates47.append(erate47.smooth_rate(width=100*ms))
+        elif thing == 1:
+            eRates00b.append(erate00.smooth_rate(width=100*ms))
+            eRates15b.append(erate15.smooth_rate(width=100*ms))
+            eRates31b.append(erate31.smooth_rate(width=100*ms))
+            eRates47b.append(erate47.smooth_rate(width=100*ms))
+        else:
+            eRates00c.append(erate00.smooth_rate(width=100*ms))
+            eRates15c.append(erate15.smooth_rate(width=100*ms))
+            eRates31c.append(erate31.smooth_rate(width=100*ms))
+            eRates47c.append(erate47.smooth_rate(width=100*ms))
+# -
 
 figure(figsize=(8,6))
 plot(e_spmon.t/second, e_spmon.i,'.'); xlim([2,2.1])
 
 rateWidth = 1000 * ms
-plot(erate0.t/second,   erate0.smooth_rate(width=rateWidth)/Hz,
-     erate1.t/second,   erate1.smooth_rate(width=rateWidth)/Hz,
-     erate10.t/second, erate10.smooth_rate(width=rateWidth)/Hz,
-     erate20.t/second, erate20.smooth_rate(width=rateWidth)/Hz)
+plot(erate00.t/second, erate00.smooth_rate(width=rateWidth)/Hz,
+     erate15.t/second, erate15.smooth_rate(width=rateWidth)/Hz,
+     erate31.t/second, erate31.smooth_rate(width=rateWidth)/Hz,
+     erate47.t/second, erate47.smooth_rate(width=rateWidth)/Hz)
 xlim([2,6])
-
-plot(irate.t/second,irate.smooth_rate(width=100*ms))
 
 idx = 34
 plot(e_vmon.t, e_vmon.Vm[idx]); xlim([0.2,0.8])
 scatter(e_spmon.t[e_spmon.i==idx],3.65*ones(len(e_spmon.t[e_spmon.i==idx])),color='r')
 
-shape(eRates0)
-
 # +
 smooth_width = 1000*ms
 
-#avgRate = zeros_like(eRates0[0].smooth_rate(width=smooth_width))
-avgRate = zeros((20,80000))
+sig_shape = shape(eRates00)
+avgRate = zeros(sig_shape)
+avgRateB = zeros(sig_shape)
+avgRateC = zeros(sig_shape)
 
-for i in range(20):
-    avgRate[i,:]  =  eRates0[i]#.smooth_rate(width=smooth_width)
-    avgRate[i,:] +=  eRates1[i]#.smooth_rate(width=smooth_width)
-    avgRate[i,:] += eRates10[i]#.smooth_rate(width=smooth_width)
-    avgRate[i,:] += eRates20[i]#.smooth_rate(width=smooth_width)
+for i in range(sig_shape[0]):
+    avgRate[i,:]  = eRates00[i]#.smooth_rate(width=smooth_width)
+    avgRate[i,:] += eRates15[i]#.smooth_rate(width=smooth_width)
+    avgRate[i,:] += eRates31[i]#.smooth_rate(width=smooth_width)
+    avgRate[i,:] += eRates47[i]#.smooth_rate(width=smooth_width)
     avgRate[i,:] = avgRate[i,:]/4
+    avgRateB[i,:]  = eRates00b[i]#.smooth_rate(width=smooth_width)
+    avgRateB[i,:] += eRates15b[i]#.smooth_rate(width=smooth_width)
+    avgRateB[i,:] += eRates31b[i]#.smooth_rate(width=smooth_width)
+    avgRateB[i,:] += eRates47b[i]#.smooth_rate(width=smooth_width)
+    avgRateB[i,:] = avgRateB[i,:]/4
+    avgRateC[i,:]  = eRates00c[i]#.smooth_rate(width=smooth_width)
+    avgRateC[i,:] += eRates15c[i]#.smooth_rate(width=smooth_width)
+    avgRateC[i,:] += eRates31c[i]#.smooth_rate(width=smooth_width)
+    avgRateC[i,:] += eRates47c[i]#.smooth_rate(width=smooth_width)
+    avgRateC[i,:] = avgRateC[i,:]/4
 # -
 
-plot(erate0.t/second, avgRate[0,:]/Hz,
-     erate0.t/second, avgRate[1,:]/Hz,
-     erate0.t/second, avgRate[2,:]/Hz,
-     erate0.t/second, avgRate[3,:]/Hz)
+plot(erate00.t/second, avgRateB[0,:]/Hz,
+     erate00.t/second, avgRateB[1,:]/Hz,
+     erate00.t/second, avgRateB[2,:]/Hz,
+     erate00.t/second, avgRateB[3,:]/Hz)
 
-for i in range(20):    
-    plot(erate0.t/second, avgRate[i,:]/Hz)
+for i in range(sig_shape[0]):    
+    plot(erate00.t/second, avgRate[i,:]/Hz)
 xlim([1.5,6.5])
 
-shape(avgRate)
+cut_start = 20000; cut_stop = 60000
+meanRates = np.mean(avgRate[:,cut_start:cut_stop], axis=1)
+stdRates  = np.std(avgRate[:,cut_start:cut_stop], axis=1)
+meanRatesB = np.mean(avgRateB[:,cut_start:cut_stop], axis=1)
+stdRatesB  = np.std(avgRateB[:,cut_start:cut_stop], axis=1)
+meanRatesC = np.mean(avgRateC[:,cut_start:cut_stop], axis=1)
+stdRatesC  = np.std(avgRateC[:,cut_start:cut_stop], axis=1)
 
-meanRates = np.mean(avgRate[:,15000:65000], axis=1)
-stdRates  = np.std(avgRate[:,15000:65000], axis=1)
-
+# + {"scrolled": true}
 ax = gca()
 ax.errorbar(poissonRates/1000, meanRates, yerr=stdRates)
+ax.errorbar(poissonRates/1000, meanRatesB, yerr=stdRatesB)
+ax.errorbar(poissonRates/1000, meanRatesC, yerr=stdRatesC)
+# -
+
+totAvgRate = (avgRate + avgRateB + avgRateC)/3.0
+meanRatesTotal = np.mean(totAvgRate[:,cut_start:cut_stop], axis=1)
+stdRatesTotal = np.std(totAvgRate[:,cut_start:cut_stop], axis=1)
+
+ax = gca()
+ax.errorbar(poissonRates/1000, meanRatesTotal, yerr=stdRatesTotal, color='k')
 
 
