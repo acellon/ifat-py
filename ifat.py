@@ -15,7 +15,7 @@
 #     name: python
 #     nbconvert_exporter: python
 #     pygments_lexer: ipython3
-#     version: 3.6.0
+#     version: 3.6.4
 # ---
 
 # # Development Notebook for IFAT Simulator
@@ -301,7 +301,9 @@ erate10 = PopulationRateMonitor(blair_exc[10:11])
 erate20 = PopulationRateMonitor(blair_exc[13:14])
 irate = PopulationRateMonitor(blair_inh[:1])
 
+# + {"scrolled": false}
 run(10*second,report='text')
+# -
 
 figure(figsize=(8,6))
 plot(e_spmon.t/second, e_spmon.i,'.'); #xlim([0.2,0.4])
@@ -315,20 +317,19 @@ plot(erate0.t/second,   erate0.smooth_rate(width=rateWidth),
 
 plot(irate.t/second,irate.smooth_rate(width=100*ms))
 
-figure(figsize=(14,4))
-subplot(131)
-scatter(exc2inh.i,exc2inh.j,s=exc2inh.W/(50*fF))
-plot(arange(M),arange(M),'--r')
-title(r'Excitatory $\rightarrow$ Inhibitory')
-subplot(132)
-scatter(inh2inh.i,inh2inh.j,s=inh2inh.W/(50*fF))
-plot(arange(M),arange(M),'--r')
-title(r'Inhibitory $\rightarrow$ Inhibitory')
-subplot(133)
-scatter(inh2exc.i,inh2exc.j,s=inh2exc.W/(50*fF))
-plot(arange(M),arange(M),'--r')
-title(r'Inhibitory $\rightarrow$ Excitatory')
-suptitle(r'Synaptic Weights (Blair et al., 2014)', fontsize=16, y=1.05)
+fig, axs = subplots(3,1,figsize=(6,12),sharex='all',sharey='all')
+axs[0].scatter(exc2inh.i,exc2inh.j,s=exc2inh.W/(25*fF))
+axs[0].plot(arange(M),arange(M),'--r')
+axs[0].set_title(r'Excitatory $\rightarrow$ Inhibitory')
+axs[1].set_ylabel(r'Postsynaptic Neuron Index')
+axs[1].scatter(inh2inh.i,inh2inh.j,s=inh2inh.W/(25*fF))
+axs[1].plot(arange(M),arange(M),'--r')
+axs[1].set_title(r'Inhibitory $\rightarrow$ Inhibitory')
+axs[2].set_xlabel(r'Presynaptic Neuron Index')
+axs[2].scatter(inh2exc.i,inh2exc.j,s=inh2exc.W/(25*fF))
+axs[2].plot(arange(M),arange(M),'--r')
+axs[2].set_title(r'Inhibitory $\rightarrow$ Excitatory')
+#suptitle(r'Synaptic Weights (Blair et al., 2014)', fontsize=16, y=1.05)
 tight_layout()
 
 plot(e_vmon.t, e_vmon.Vm[0]); xlim([0.2,0.4])

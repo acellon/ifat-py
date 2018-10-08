@@ -15,7 +15,7 @@
 #     name: python
 #     nbconvert_exporter: python
 #     pygments_lexer: ipython3
-#     version: 3.6.0
+#     version: 3.6.4
 # ---
 
 # # ISCAS Paper Work
@@ -220,7 +220,9 @@ for thing in range(3):
 # -
 
 figure(figsize=(8,6))
-plot(e_spmon.t/second, e_spmon.i,'.'); xlim([2,2.1])
+plot(e_spmon.t/ms, e_spmon.i,'.'); xlim([5000,5250])
+xlabel('Time (ms)')
+ylabel('Neuron index')
 
 rateWidth = 1000 * ms
 plot(erate00.t/second, erate00.smooth_rate(width=rateWidth)/Hz,
@@ -229,9 +231,11 @@ plot(erate00.t/second, erate00.smooth_rate(width=rateWidth)/Hz,
      erate47.t/second, erate47.smooth_rate(width=rateWidth)/Hz)
 xlim([2,6])
 
-idx = 34
-plot(e_vmon.t, e_vmon.Vm[idx]); xlim([0.2,0.4])
-scatter(e_spmon.t[e_spmon.i==idx],3.65*ones(len(e_spmon.t[e_spmon.i==idx])),color='r')
+idx = 32
+plot(e_vmon.t/ms-5000, e_vmon.Vm[idx]); xlim([0,250])
+scatter(e_spmon.t[e_spmon.i==idx]/ms-5000,3.65*ones(len(e_spmon.t[e_spmon.i==idx])),color='r')
+xlabel('Time (ms)')
+ylabel('Membrane Voltage (V)')
 
 # +
 smooth_width = 1000*ms
@@ -268,7 +272,7 @@ for i in range(sig_shape[0]):
     plot(erate00.t/second, avgRate[i,:]/Hz)
 xlim([1.5,6.5])
 
-cut_start = 20000; cut_stop = 60000
+cut_start = 15000; cut_stop = 50000
 meanRates = np.mean(avgRate[:,cut_start:cut_stop], axis=1)
 stdRates  = np.std(avgRate[:,cut_start:cut_stop], axis=1)
 meanRatesB = np.mean(avgRateB[:,cut_start:cut_stop], axis=1)
@@ -288,7 +292,10 @@ meanRatesTotal = np.mean(totAvgRate[:,cut_start:cut_stop], axis=1)
 stdRatesTotal = np.std(totAvgRate[:,cut_start:cut_stop], axis=1)
 
 ax = gca()
-ax.errorbar(poissonRates/1000, meanRatesTotal, yerr=stdRatesTotal, color='k')
+ax.errorbar(poissonRates/1000, meanRatesTotal, yerr=stdRatesTotal, color='C0', LineWidth=2.5, ecolor='C1')
+xlabel('Mean Input Rate (kHz)')
+ylabel('Angular Frequency (Hz)')
+grid()
 
 # ## Mapping direction/speed to Poisson input
 
