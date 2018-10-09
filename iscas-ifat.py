@@ -381,7 +381,7 @@ inh2inh.Em = Em_vals[0]
 inh2inh.W = calc_weight(M,alpha,mu1,sigma).flatten()
 # -
 
-prates = '(2 + 500*check1[(int(t/dt))])*kHz'
+prates = '(3 + 5*veldot(t))*kHz'
 PoisIn = PoissonGroup(M,rates=prates)
 p2exc = Synapses(PoisIn, blair_exc, syn_eq, on_pre=presyn_eq)
 p2exc.connect('j==i')
@@ -396,20 +396,28 @@ erate00 = PopulationRateMonitor(blair_exc[:1])
 erate15 = PopulationRateMonitor(blair_exc[15:16])
 erate31 = PopulationRateMonitor(blair_exc[31:32])
 erate47 = PopulationRateMonitor(blair_exc[47:48])
-#ratecheck = StateMonitor(PoisIn, 'rates',record=True)
+ratecheck = StateMonitor(PoisIn, 'rates',record=True)
 #irate = PopulationRateMonitor(blair_inh[:1])
 
 # + {"scrolled": false}
 run(10*second,report='text')
-
-# + {"scrolled": true}
-plot(ratecheck.t,ratecheck.rates[0,:],ratecheck.t,ratecheck.rates[1,:],ratecheck.t,ratecheck.rates[2,:])
 # -
 
-check1[int(1.1*ms/(100*us))]
+np.dot(vel[(int(1*second/defaultclock.dt))],d1)
 
+# + {"scrolled": true}
+plot(ratecheck.t,ratecheck.rates[0,:]/kHz)#,ratecheck.t,ratecheck.rates[1,:],ratecheck.t,ratecheck.rates[2,:])
+# -
 
+plot(e_spmon.t/second, e_spmon.i,'.')
+xlim([0,0.5])
+
+check1
 
 shape(check1)
+
+dt = defaultclock.dt
+
+veldot = TimedArray(check1,dt=dt)
 
 
