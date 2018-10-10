@@ -231,6 +231,7 @@ plot(erate00.t/second, erate00.smooth_rate(width=rateWidth)/Hz,
      erate47.t/second, erate47.smooth_rate(width=rateWidth)/Hz)
 xlim([2,6])
 
+# + {"scrolled": true}
 idx = 32
 plot(e_vmon.t/ms-5000, e_vmon.Vm[idx]); xlim([0,250])
 scatter(e_spmon.t[e_spmon.i==idx]/ms-5000,3.65*ones(len(e_spmon.t[e_spmon.i==idx])),color='r')
@@ -297,127 +298,96 @@ xlabel('Mean Input Rate (kHz)')
 ylabel('Angular Frequency (Hz)')
 grid()
 
-# ## Mapping direction/speed to Poisson input
-
-# Preferred direction for cell
-theta1 = pi/6
-theta2 = 5*pi/6
-theta3 = 9*pi/6
-lam = 0.01 # meters
-d1 = lam * np.asarray([cos(theta1),sin(theta1)])
-d2 = lam * np.asarray([cos(theta2),sin(theta2)])
-d3 = lam * np.asarray([cos(theta3),sin(theta3)])
-
-def randwalk(v=5, nsteps=100, size=5):
-    rwpath = np.ones([nsteps,2]) * (size/2.)
-    for step in np.arange(1,nsteps):
-        while (np.abs(rwpath[step,:])>=(size/2.)).any():
-            vel = np.random.random()/v
-            theta=2*math.pi*np.random.random()
-            dx = vel*math.cos(theta)
-            dy = vel*math.sin(theta)
-            rwpath[step,:] = rwpath[step-1,:] + [dx, dy]
-
-    return rwpath
-
-num_steps = int(10*second/defaultclock.dt)
-
-vel = randwalk(v=10,nsteps=num_steps,size=3)
-
-plot(vel[:,0],vel[:,1])
-
-check1 = np.dot(vel,d1)
-check2 = np.dot(vel,d2)
-check3 = np.dot(vel,d3)
-
-shape(check1)
-
-# + {"scrolled": true}
-restore()
-PoisIn.rates = '(1000 + 1000*cos(2*pi*0.1*t*Hz))*Hz'
-run(10*second,report='text')
-# -
-
-plot(e_vmon.t, e_vmon.Vm[0]);#xlim([0.2,0.8])
-
-# + {"scrolled": true}
-plot(inrate.t/second, inrate.smooth_rate(width=200*ms)/kHz)
-# -
-
-u = arange(0,10,0.1)
-
-v = cos(2*pi*0.1*u)
-
-plot(u,v)
-
-# + {"scrolled": true}
-plot(ratecheck.t,ratecheck.rates[0,:],ratecheck.t,ratecheck.rates[1,:],ratecheck.t,ratecheck.rates[2,:])
+# ## Making Everything Easy for Bayo
 
 # +
 start_scope()
 
-blair_exc = NeuronGroup(M, neuron_eq, threshold='Vm>Vt', reset=reset_eq, method='exact')
-blair_exc.Vt = Vt_r
-blair_exc.Vm = Vm_r
+G1 = NeuronGroup(2*M, neuron_eq, threshold='Vm>Vt', reset=reset_eq, method='exact')
+G1.Vt = Vt_r
+G1.Vm = Vm_r
+G1_exc = G1[:M]
+G1_inh = G1[M:]
 
-blair_inh = NeuronGroup(M, neuron_eq, threshold='Vm>Vt', reset=reset_eq, method='exact')
-blair_inh.Vt = Vt_r
-blair_inh.Vm = Vm_r
+G1_e2i = Synapses(G1_exc, G1_inh, syn_eq, on_pre=presyn_eq)
+G1_e2i.connect()
+G1_e2i.Em = Em_vals[3]
+G1_e2i.W = calc_weight(M,alpha,mu1,sigma).flatten()
 
-# +
-exc2inh = Synapses(blair_exc, blair_inh, syn_eq, on_pre=presyn_eq)
-exc2inh.connect()
-exc2inh.Em = Em_vals[3]
-exc2inh.W = calc_weight(M,alpha,mu1,sigma).flatten()
+G1_i2e = Synapses(G1_inh, G1_exc, syn_eq, on_pre=presyn_eq)
+G1_i2e.connect()
+G1_i2e.Em = Em_vals[0]
+G1_i2e.W = calc_weight(M,alpha,mu2,sigma).flatten()
 
-inh2exc = Synapses(blair_inh, blair_exc, syn_eq, on_pre=presyn_eq)
-inh2exc.connect()
-inh2exc.Em = Em_vals[0]
-inh2exc.W  = calc_weight(M,alpha,mu2,sigma).flatten()
+G1_i2i = Synapses(G1_inh, G1_inh, syn_eq, on_pre=presyn_eq)
+G1_i2i.connect()
+G1_i2i.Em = Em_vals[0]
+G1_i2i.W = calc_weight(M,alpha,mu1,sigma).flatten()
 
-inh2inh = Synapses(blair_inh, blair_inh, syn_eq, on_pre=presyn_eq)
-inh2inh.connect()
-inh2inh.Em = Em_vals[0]
-inh2inh.W = calc_weight(M,alpha,mu1,sigma).flatten()
+P1_rates = '(3)*kHz'
+P1 = PoissonGroup(M,rates=P1_rates)
+P1_syn = Synapses(P1, G1_exc, syn_eq, on_pre=presyn_eq)
+P1_syn.connect('j==i')
+P1_syn.Em = Em_vals[3]
+P1_syn.W = W_vals[2] + W_vals[0]
+
+G1e_sp = SpikeMonitor(G1_exc)
+P1_rate = StateMonitor(P1, 'rates',record=True)
 # -
 
-prates = '(3 + 5*veldot(t))*kHz'
-PoisIn = PoissonGroup(M,rates=prates)
-p2exc = Synapses(PoisIn, blair_exc, syn_eq, on_pre=presyn_eq)
-p2exc.connect('j==i')
-p2exc.Em = Em_vals[3]
-p2exc.W = W_vals[2] + W_vals[0]# + W_vals[0]
+e2i = calc_weight(M,alpha,mu1,sigma)
 
-i_spmon = SpikeMonitor(blair_inh)
-e_spmon = SpikeMonitor(blair_exc)
-e_vmon = StateMonitor(blair_exc, 'Vm', record=True)
-inrate = PopulationRateMonitor(PoisIn)
-erate00 = PopulationRateMonitor(blair_exc[:1])
-erate15 = PopulationRateMonitor(blair_exc[15:16])
-erate31 = PopulationRateMonitor(blair_exc[31:32])
-erate47 = PopulationRateMonitor(blair_exc[47:48])
-ratecheck = StateMonitor(PoisIn, 'rates',record=True)
-#irate = PopulationRateMonitor(blair_inh[:1])
+imshow(e2i/farad)
 
-# + {"scrolled": false}
-run(10*second,report='text')
-# -
+e2i[0,30]
 
-np.dot(vel[(int(1*second/defaultclock.dt))],d1)
+plot(e2i[0,:]/fF)
+
+e2i[(e2i/farad)==0] = np.nan
+
+e2i = e2i/fF
+
+e2i[e2i==0] = np.nan
+
+e2i
+
+imshow(e2i)
+
+shape(e2i)
 
 # + {"scrolled": true}
-plot(ratecheck.t,ratecheck.rates[0,:]/kHz)#,ratecheck.t,ratecheck.rates[1,:],ratecheck.t,ratecheck.rates[2,:])
+np.count_nonzero(~np.isnan(e2i))
 # -
 
-plot(e_spmon.t/second, e_spmon.i,'.')
-xlim([0,0.5])
+start_scope()
 
-check1
+W = np.array([[1, 2, 4, nan, 2],[3,nan,nan,4,3],[nan,2,2,nan,nan],[1,1,nan,1,nan],[1,1,1,nan,nan]])
 
-shape(check1)
+W[0,:]
 
-dt = defaultclock.dt
+shape(W)
 
-veldot = TimedArray(check1,dt=dt)
+# +
+source = NeuronGroup(5, neuron_eq, threshold='Vm>Vt', reset=reset_eq, method='exact')
+source.Vt = Vt_r
+source.Vm = Vm_r
+
+target = NeuronGroup(5, neuron_eq, threshold='Vm>Vt', reset=reset_eq, method='exact')
+target.Vt = Vt_r
+target.Vm = Vm_r
+
+S = Synapses(source, target, syn_eq, on_pre=presyn_eq)
+for i in range(shape(W)[0]):
+    for j in range(shape(W)[1]):
+        if ~isnan(W[i,j]):
+            S.connect(i=i,j=j)
+S.Em = Em_vals[3]
+S.W = W[~isnan(W)].flatten()*farad
+
+# -
+
+visualize_connectivity(S)
+
+S.W[2,2]
 
 
