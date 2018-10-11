@@ -15,7 +15,7 @@
 #     name: python
 #     nbconvert_exporter: python
 #     pygments_lexer: ipython3
-#     version: 3.6.4
+#     version: 3.6.6
 # ---
 
 # # ISCAS Paper Work
@@ -310,19 +310,31 @@ G1_exc = G1[:M]
 G1_inh = G1[M:]
 
 G1_e2i = Synapses(G1_exc, G1_inh, syn_eq, on_pre=presyn_eq)
-G1_e2i.connect()
+W1_e2i = calc_weight(M,alpha,mu1,sigma)
+for ii in range(M):
+    for jj in range(M):
+        if ~isnan(W1_e2i[ii,jj]):
+            G1_e2i.connect(i=ii,j=jj)
 G1_e2i.Em = Em_vals[3]
-G1_e2i.W = calc_weight(M,alpha,mu1,sigma).flatten()
+G1_e2i.W = W1_e2i[~isnan(W1_e2i)].flatten()
 
 G1_i2e = Synapses(G1_inh, G1_exc, syn_eq, on_pre=presyn_eq)
-G1_i2e.connect()
+W1_i2e = calc_weight(M,alpha,mu2,sigma)
+for ii in range(M):
+    for jj in range(M):
+        if ~isnan(W1_i2e[ii,jj]):
+            G1_i2e.connect(i=ii,j=jj)
 G1_i2e.Em = Em_vals[0]
-G1_i2e.W = calc_weight(M,alpha,mu2,sigma).flatten()
+G1_i2e.W = W1_i2e[~isnan(W1_i2e)].flatten()
 
 G1_i2i = Synapses(G1_inh, G1_inh, syn_eq, on_pre=presyn_eq)
-G1_i2i.connect()
+W1_i2i = calc_weight(M,alpha,mu1,sigma)
+for ii in range(M):
+    for jj in range(M):
+        if ~isnan(W1_i2i[ii,jj]):
+            G1_i2i.connect(i=ii,j=jj)
 G1_i2i.Em = Em_vals[0]
-G1_i2i.W = calc_weight(M,alpha,mu1,sigma).flatten()
+G1_i2i.W = W1_i2i[~isnan(W1_i2i)].flatten()
 
 P1_rates = '(3)*kHz'
 P1 = PoissonGroup(M,rates=P1_rates)
@@ -342,8 +354,6 @@ imshow(e2i/farad)
 e2i[0,30]
 
 plot(e2i[0,:]/fF)
-
-e2i[(e2i/farad)==0] = np.nan
 
 e2i = e2i/fF
 
@@ -367,7 +377,7 @@ W[0,:]
 
 shape(W)
 
-# +
+# + {"scrolled": false}
 source = NeuronGroup(5, neuron_eq, threshold='Vm>Vt', reset=reset_eq, method='exact')
 source.Vt = Vt_r
 source.Vm = Vm_r
@@ -379,7 +389,7 @@ target.Vm = Vm_r
 S = Synapses(source, target, syn_eq, on_pre=presyn_eq)
 for i in range(shape(W)[0]):
     for j in range(shape(W)[1]):
-        if ~isnan(W[i,j]):
+        if ~np.isnan(W[i,j]):
             S.connect(i=i,j=j)
 S.Em = Em_vals[3]
 S.W = W[~isnan(W)].flatten()*farad
