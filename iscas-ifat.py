@@ -15,7 +15,7 @@
 #     name: python
 #     nbconvert_exporter: python
 #     pygments_lexer: ipython3
-#     version: 3.6.6
+#     version: 3.6.4
 # ---
 
 # # ISCAS Paper Work
@@ -49,12 +49,14 @@ def visualize_connectivity(S):
     ylabel('Target neuron index')
 
 def calc_weight(M, alpha, mu, sigma):
+    alpha = alpha/fF
     output = zeros((M,M))
     for i in np.arange(M):
         for j in np.arange(M):
             output[i,j] = exp(cos((2*pi*i/M) - (2*pi*j/M) - mu)/sigma**2)
     output = output * (alpha/np.max(output))
-    output = 5.0 * fF * np.around(output/(5.0*fF))
+    output = 5.0 * np.around(output/(5.0))
+    output[output==0.] = nan
     return output
 
 MODE = 'adaptive'
@@ -300,6 +302,8 @@ grid()
 
 # ## Making Everything Easy for Bayo
 
+
+
 # +
 start_scope()
 
@@ -316,7 +320,7 @@ for ii in range(M):
         if ~isnan(W1_e2i[ii,jj]):
             G1_e2i.connect(i=ii,j=jj)
 G1_e2i.Em = Em_vals[3]
-G1_e2i.W = W1_e2i[~isnan(W1_e2i)].flatten()
+G1_e2i.W = W1_e2i[~isnan(W1_e2i)].flatten()*fF
 
 G1_i2e = Synapses(G1_inh, G1_exc, syn_eq, on_pre=presyn_eq)
 W1_i2e = calc_weight(M,alpha,mu2,sigma)
@@ -325,7 +329,7 @@ for ii in range(M):
         if ~isnan(W1_i2e[ii,jj]):
             G1_i2e.connect(i=ii,j=jj)
 G1_i2e.Em = Em_vals[0]
-G1_i2e.W = W1_i2e[~isnan(W1_i2e)].flatten()
+G1_i2e.W = W1_i2e[~isnan(W1_i2e)].flatten()*fF
 
 G1_i2i = Synapses(G1_inh, G1_inh, syn_eq, on_pre=presyn_eq)
 W1_i2i = calc_weight(M,alpha,mu1,sigma)
@@ -334,7 +338,7 @@ for ii in range(M):
         if ~isnan(W1_i2i[ii,jj]):
             G1_i2i.connect(i=ii,j=jj)
 G1_i2i.Em = Em_vals[0]
-G1_i2i.W = W1_i2i[~isnan(W1_i2i)].flatten()
+G1_i2i.W = W1_i2i[~isnan(W1_i2i)].flatten()*fF
 
 P1_rates = '(3)*kHz'
 P1 = PoissonGroup(M,rates=P1_rates)
@@ -347,57 +351,111 @@ G1e_sp = SpikeMonitor(G1_exc)
 P1_rate = StateMonitor(P1, 'rates',record=True)
 # -
 
-e2i = calc_weight(M,alpha,mu1,sigma)
+run(10*second, report='text')
 
-imshow(e2i/farad)
+plot(G1e_sp.t/second,G1e_sp.i,'.')
+xlim([1,1.2])
 
-e2i[0,30]
-
-plot(e2i[0,:]/fF)
-
-e2i = e2i/fF
-
-e2i[e2i==0] = np.nan
-
-e2i
-
-imshow(e2i)
-
-shape(e2i)
-
-# + {"scrolled": true}
-np.count_nonzero(~np.isnan(e2i))
-# -
-
-start_scope()
-
-W = np.array([[1, 2, 4, nan, 2],[3,nan,nan,4,3],[nan,2,2,nan,nan],[1,1,nan,1,nan],[1,1,1,nan,nan]])
-
-W[0,:]
-
-shape(W)
+group1 = {'weights': W1_e2i, 'Em': 3, 'stype': 0, 'ttype': 1}
+group2 = {'weights': W1_i2e, 'Em': 0, 'stype': 1, 'ttype': 0}
+group3 = {'weights': W1_i2i, 'Em': 0, 'stype': 1, 'ttype': 1}
 
 # + {"scrolled": false}
-source = NeuronGroup(5, neuron_eq, threshold='Vm>Vt', reset=reset_eq, method='exact')
-source.Vt = Vt_r
-source.Vm = Vm_r
-
-target = NeuronGroup(5, neuron_eq, threshold='Vm>Vt', reset=reset_eq, method='exact')
-target.Vt = Vt_r
-target.Vm = Vm_r
-
-S = Synapses(source, target, syn_eq, on_pre=presyn_eq)
-for i in range(shape(W)[0]):
-    for j in range(shape(W)[1]):
-        if ~np.isnan(W[i,j]):
-            S.connect(i=i,j=j)
-S.Em = Em_vals[3]
-S.W = W[~isnan(W)].flatten()*farad
-
+def print_exc_syn(group):
+    M = shape(group['weights'])
+    for i in range(10):
+        print('{}:'.format(i), end=' ')
+        for j in range(M[1]):
+            if ~isnan(group['weights'][i,j]):
+                print(j, (group['weights'][i,j]/5).astype(int), group['Em'])#, end=' ')
+        print()
+        print()
 # -
 
-visualize_connectivity(S)
+def make_event(index, addr_x, wm, em_sel, wt=0, chip_sel=1, thr_switch=0, debug=0):
+    if(debug):
+        print("\tMaking event..\n");
 
-S.W[2,2]
+    wm_pos = 0;
+    wt_pos = 5;
+    row_pos = 10;
+    col_pos = 16;
+    em_sel_pos = 22;
+    chip_sel_pos = 24;
+    col_sel_pos = 28;
+    addr_x_pos = 29;
+    thr_switch_pos = 30;
+    num_rows = 34;
+    num_cols = 30;
+    col_sel = 1;
+
+    row = int(index/num_cols);
+    col = int(index%num_rows);
+    row_i = (row<<row_pos) & (0b11111<<row_pos);
+    col_i = (col<<col_pos) & (0b11111<<col_pos);
+    addrx_i = (addr_x<<addr_x_pos) & (0b11111<<addr_x_pos);
+    wm_i = (wm<<wm_pos) & (0b11111<<wm_pos);
+    wt_i = (wt<<wt_pos) & (0b11111<<wt_pos);
+    em_i = (em_sel<<em_sel_pos) & (0b11111<<em_sel_pos);
+    cs_i = (chip_sel<<chip_sel_pos) & (0b11111<<chip_sel_pos);
+    col_sel_i = (col_sel<<col_sel_pos) & (0b11111<<col_sel_pos);
+    thr_sw_i = (thr_switch<<thr_switch_pos) & (0b11111<<thr_switch_pos);
+
+    out_event = row_i | col_i | addrx_i | wm_i | wt_i | em_i | cs_i | col_sel_i | thr_sw_i;
+    out_event = out_event & 0xffffffff
+    
+    if(debug):
+        print("\t\tout event:",end=' ')
+        print(format(out_event, '032b'))
+
+    return out_event;
+
+def print_exc_syn2(group):
+    M = shape(group['weights'])
+    for i in range(M[0]):
+        print('{}:'.format(i+30*34*group['stype']), end='')
+        for j in range(M[1]):
+            if ~isnan(group['weights'][i,j]):
+                print(make_event(j, group['ttype'], int(group['weights'][i,j]/5), group['Em']), end=' ')
+        print()
+
+print_exc_syn(group1)
+
+print_exc_syn2(group1)
+
+def print_inh_syn2(i2e,i2i):
+    M = shape(i2e['weights'])
+    for i in range(M[0]):
+        print('{}:'.format(i+30*34*i2e['stype']), end='')
+        for j in range(M[1]):
+            if ~isnan(i2e['weights'][i,j]):
+                print(make_event(j, i2e['ttype'], int(i2e['weights'][i,j]/5), i2e['Em']), end=' ')
+            if ~isnan(i2i['weights'][i,j]):
+                print(make_event(j, i2i['ttype'], int(i2i['weights'][i,j]/5), i2i['Em']), end=' ')
+        print()
+
+print_inh_syn2(group2, group3)
+
+def poissonSpikeGen(rate=3*kHz, dt=100*us, t=1*second, num_neur=1):
+    bins = int(t/dt)
+    print(bins)
+    output = rand(num_neur, bins) < rate*dt
+    time = arange(0,t-dt,dt)
+    return time, output
+
+time, out = poissonSpikeGen(rate=3*kHz, dt=100*us, t=10*ms, num_neur=64)
+
+# + {"scrolled": true}
+for i in range(M):
+    plot(time,out[i]*i,'.'); 
+
+# + {"scrolled": false}
+for i, t in enumerate(time):
+    print("{}:".format(round(t/us)),end=' ')
+    for j in range(M):
+        if out[j,i]:
+            print('{}'.format(make_event(j, 0, 5, 3)), end=' ')
+    print()
+# -
 
 

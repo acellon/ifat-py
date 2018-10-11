@@ -15,7 +15,7 @@
 #     name: python
 #     nbconvert_exporter: python
 #     pygments_lexer: ipython3
-#     version: 3.6.6
+#     version: 3.6.4
 # ---
 
 # +
@@ -127,7 +127,7 @@ sigma = 36 * pi/180
 theta1 = 0
 theta2 = theta1 + 2*pi/3
 theta3 = theta2 + 2*pi/3
-lam = 0.01 # meters
+lam = 10 # meters
 d1 = lam * np.asarray([cos(theta1),sin(theta1)])
 d2 = lam * np.asarray([cos(theta2),sin(theta2)])
 d3 = lam * np.asarray([cos(theta3),sin(theta3)])
@@ -158,19 +158,18 @@ def timedrandwalk(v=5, dt=0.001*second, time=10*second, size=5):
 
 def timedrandwalk2(v=5, dt=1*ms, time=10*second, size=5):
     nsteps = int(time/dt)
-    rwpath = np.ones([nsteps,2]) * size/2.
+    rwpath = np.zeros([nsteps,2]) * size/2.
     rwvel  = np.zeros([nsteps,2])
     for step in np.arange(1,nsteps):
-            while (np.abs(rwpath[step,:])>=(size/2.)).any():
-                vel = v*np.random.random()
+            while (rwpath[step,:]>=(size)).any() or (rwpath[step,:]<=0).any():
                 theta=2*math.pi*np.random.random()
-                dx = vel*math.cos(theta)
-                dy = vel*math.sin(theta)
+                dx = v*math.cos(theta)
+                dy = v*math.sin(theta)
                 rwpath[step,:] = rwpath[step-1,:] + [dx, dy]
                 rwvel[step,:] = [dx, dy]
     return rwpath, rwvel
 
-path, vel = timedrandwalk(v=0.1,dt=defaultclock.dt,time=10*second,size=3)
+path, vel = timedrandwalk2(v=0.01,dt=1*ms,time=10*second,size=0.5)
 
 # + {"scrolled": true}
 plot(path[:,0],path[:,1])
@@ -228,13 +227,25 @@ run(10*second)
 
 plot(ratecheck.t/second, ratecheck.rates[0]/kHz)
 
-path, vel = timedrandwalk2(v=0.01,dt=5*ms,time=50*second,size=0.5)
+path, vel = timedrandwalk2(v=0.005,dt=1*ms,time=100*second,size=0.1)
 
 plot(path[:,0],path[:,1])
 
-veldot1 = TimedArray(np.dot(vel,d1),dt=10*ms)
-veldot2 = TimedArray(np.dot(vel,d2),dt=10*ms)
-veldot3 = TimedArray(np.dot(vel,d3),dt=10*ms)
+sigma/pi
+
+vel1 = np.zeros_like(vel)
+
+vel2 = np.copy(vel1)
+
+vel_old = np.copy(vel)
+
+vel = np.copy(vel1)
+
+vel = np.ones_like(vel) * 0.01
+
+veldot1 = TimedArray(np.dot(vel,d1),dt=1*ms)
+veldot2 = TimedArray(np.dot(vel,d2),dt=1*ms)
+veldot3 = TimedArray(np.dot(vel,d3),dt=1*ms)
 
 # +
 start_scope()
@@ -260,7 +271,7 @@ G1_i2i.connect()
 G1_i2i.Em = Em_vals[0]
 G1_i2i.W = calc_weight(M,alpha,mu1,sigma).flatten()
 
-P1_rates = '(3 + 10000*veldot1(t))*kHz'
+P1_rates = '(3 + 20*veldot1(t))*kHz'
 P1 = PoissonGroup(M,rates=P1_rates)
 P1_syn = Synapses(P1, G1_exc, syn_eq, on_pre=presyn_eq)
 P1_syn.connect('j==i')
@@ -291,7 +302,7 @@ G2_i2i.connect()
 G2_i2i.Em = Em_vals[0]
 G2_i2i.W = calc_weight(M,alpha,mu1,sigma).flatten()
 
-P2_rates = '(3 + 10000*veldot2(t))*kHz'
+P2_rates = '(3 + 20*veldot2(t))*kHz'
 P2 = PoissonGroup(M,rates=P2_rates)
 P2_syn = Synapses(P2, G2_exc, syn_eq, on_pre=presyn_eq)
 P2_syn.connect('j==i')
@@ -322,7 +333,7 @@ G3_i2i.connect()
 G3_i2i.Em = Em_vals[0]
 G3_i2i.W = calc_weight(M,alpha,mu1,sigma).flatten()
 
-P3_rates = '(3 + 10000*veldot3(t))*kHz'
+P3_rates = '(3 + 20*veldot3(t))*kHz'
 P3 = PoissonGroup(M,rates=P3_rates)
 P3_syn = Synapses(P3, G3_exc, syn_eq, on_pre=presyn_eq)
 P3_syn.connect('j==i')
@@ -342,26 +353,33 @@ GRID2 = GRID[2:]
 G1_GRID0 = Synapses(G1_exc, GRID0, syn_eq, on_pre=presyn_eq)
 G1_GRID0.connect()
 G1_GRID0.Em = Em_vals[3]
-G1_GRID0.W = calc_weight_grid(M, alpha/3, 0, sigma)
+G1_GRID0.W = calc_weight_grid(M, alpha/1, 0, sigma)
 
 G2_GRID0 = Synapses(G2_inh, GRID0, syn_eq, on_pre=presyn_eq)
 G2_GRID0.connect()
 G2_GRID0.Em = Em_vals[0]
-G2_GRID0.W = calc_weight_grid(M, alpha/3, pi, sigma)
+G2_GRID0.W = calc_weight_grid(M, alpha/1, pi, sigma)
 
 G3_GRID0 = Synapses(G3_exc, GRID0, syn_eq, on_pre=presyn_eq)
 G3_GRID0.connect()
 G3_GRID0.Em = Em_vals[3]
-G3_GRID0.W = calc_weight_grid(M, alpha/3, 0, sigma)
+G3_GRID0.W = calc_weight_grid(M, alpha/1, 0, sigma)
 
 GRID_sp = SpikeMonitor(GRID)
 GRID_v = StateMonitor(GRID, 'Vm', record=True)
+GRID0_rate = PopulationRateMonitor(GRID0)
 
 
 store()
 # -
 
-run(50*second,report='text')
+restore()
+BrianLogger.suppress_hierarchy('brian2.codegen.generators.base')
+run(10*second,report='text')
+
+# +
+#run(30*second,report='text')
+# -
 
 plot(P1_rate.t/second, P1_rate.rates[0]/kHz,
      P2_rate.t/second, P2_rate.rates[0]/kHz,
@@ -374,24 +392,47 @@ plot(G1e_sp.t/second, G1e_sp.i,'.C0',
      G3e_sp.t/second, G3e_sp.i,'.C2',
      GRID_sp.t/second, GRID_sp.i-5,'+C3')
 #xlim([33.2,33.4])
-xlim([4,4.25])
+#xlim([4,4.5])
 # -
 
 plot(GRID_v.t/second, GRID_v.Vm[0]/volt)
-scatter(GRID_sp.t[GRID_sp.i==0]/second,3.8*ones(len(GRID_sp.t[GRID_sp.i==0])),marker='+',color='r')
-xlim([4,4.5])
+scatter(GRID_sp.t[GRID_sp.i==0]/second,4*ones(len(GRID_sp.t[GRID_sp.i==0])),marker='+',color='r')
+xlim([4,5])
 
-times = np.zeros_like(path[:,0])
-times[np.array(GRID_sp.t/(10*ms),dtype=int)] = 1
+# + {"scrolled": true}
+plot(GRID0_rate.t/second, GRID0_rate.smooth_rate(width=100*ms))
 
 # + {"scrolled": false}
+times = np.zeros_like(path[:,0])
+times[np.array(GRID_sp.t/(1*ms),dtype=int)] = 1
+
 figure(figsize=(8,8))
 plot(path[:,0],path[:,1], zorder=1);
-scatter(path[:,0],path[:,1], s=times*4, color='r', zorder=2)
+scatter(path[:,0],path[:,1], s=times*10, color='r', zorder=2)
+#ylim([-1.01,-0.9])
+#xlim([-0.1,0.1])
+
+# +
+size = 0.05
+ss = np.linspace(-size,size,20000*size)
+
+xy = np.zeros([ss.size ** 2, 2])
+for idx,y in enumerate(ss):
+    xy[idx*ss.size:(idx+1)*ss.size,0] = -ss if idx%2 else ss
+    xy[idx*ss.size:(idx+1)*ss.size,1] = y
+
+vel = np.zeros_like(xy)
+
+vel[:-1] = xy[1:]-xy[:-1]
 
 # + {"scrolled": false}
-figure(figsize=(5,5))
-plot(vel[:,0],vel[:,1],'.')
+shape(xy)
+# -
+
+shape(ss)
+
+# + {"scrolled": true}
+ss[1]-ss[0]
 # -
 
 
