@@ -223,7 +223,7 @@ store()
 veldot = TimedArray(np.dot(vel,d1),dt=defaultclock.dt)
 BrianLogger.suppress_hierarchy('brian2.codegen.generators.base')
 restore()
-run(10*second)
+run(10*second,report='text')
 
 plot(ratecheck.t/second, ratecheck.rates[0]/kHz)
 
@@ -424,15 +424,7 @@ for idx,y in enumerate(ss):
 vel = np.zeros_like(xy)
 
 vel[:-1] = xy[1:]-xy[:-1]
-
-# + {"scrolled": false}
-shape(xy)
 # -
 
-shape(ss)
-
-# + {"scrolled": true}
-ss[1]-ss[0]
-# -
 
 

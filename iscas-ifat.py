@@ -348,13 +348,17 @@ P1_syn.Em = Em_vals[3]
 P1_syn.W = W_vals[2] + W_vals[0]
 
 G1e_sp = SpikeMonitor(G1_exc)
+G1e_v  = StateMonitor(G1_exc, 'Vm', record=True)
 P1_rate = StateMonitor(P1, 'rates',record=True)
 # -
 
 run(10*second, report='text')
 
-plot(G1e_sp.t/second,G1e_sp.i,'.')
-xlim([1,1.2])
+plot(G1e_sp.t/ms,G1e_sp.i,'.')
+xlim([1000,1020])
+
+plot(G1e_v.t/ms, G1e_v.Vm[0])
+xlim([1000,1010])
 
 group1 = {'weights': W1_e2i, 'Em': 3, 'stype': 0, 'ttype': 1}
 group2 = {'weights': W1_i2e, 'Em': 0, 'stype': 1, 'ttype': 0}
@@ -419,9 +423,18 @@ def print_exc_syn2(group):
                 print(make_event(j, group['ttype'], int(group['weights'][i,j]/5), group['Em']), end=' ')
         print()
 
-print_exc_syn(group1)
+def write_exc_syn(group, file):
+    M = shape(group['weights'])
+    with open(file,'w') as f:
+        for i in range(M[0]):
+            f.write('{}:'.format(i+30*34*group['stype']))
+            for j in range(M[1]):
+                if ~isnan(group['weights'][i,j]):
+                    f.write(str(make_event(j, group['ttype'], int(group['weights'][i,j]/5), group['Em'])) + ' ')
+            if i<M[0]-1:
+                f.write('\n')
 
-print_exc_syn2(group1)
+write_exc_syn(group1,'check_exc.txt')
 
 def print_inh_syn2(i2e,i2i):
     M = shape(i2e['weights'])
@@ -434,7 +447,20 @@ def print_inh_syn2(i2e,i2i):
                 print(make_event(j, i2i['ttype'], int(i2i['weights'][i,j]/5), i2i['Em']), end=' ')
         print()
 
-print_inh_syn2(group2, group3)
+def write_inh_syn(i2e, i2i, file):
+    M = shape(i2e['weights'])
+    with open(file,'w') as f:
+        for i in range(M[0]):
+            f.write('{}:'.format(i+30*34*i2e['stype']))
+            for j in range(M[1]):
+                if ~isnan(i2e['weights'][i,j]):
+                    f.write(str(make_event(j, i2e['ttype'], int(i2e['weights'][i,j]/5), i2e['Em'])) + ' ')
+                if ~isnan(i2i['weights'][i,j]):
+                    f.write(str(make_event(j, i2i['ttype'], int(i2i['weights'][i,j]/5), i2i['Em'])) + ' ')
+            if i<M[0]-1:
+                f.write('\n')
+
+write_inh_syn(group2,group3,'check_inh.txt')
 
 def poissonSpikeGen(rate=3*kHz, dt=100*us, t=1*second, num_neur=1):
     bins = int(t/dt)
@@ -443,19 +469,23 @@ def poissonSpikeGen(rate=3*kHz, dt=100*us, t=1*second, num_neur=1):
     time = arange(0,t-dt,dt)
     return time, output
 
-time, out = poissonSpikeGen(rate=3*kHz, dt=100*us, t=10*ms, num_neur=64)
+time, out = poissonSpikeGen(rate=3*kHz, dt=100*us, t=2*second, num_neur=64)
 
-# + {"scrolled": true}
 for i in range(M):
     plot(time,out[i]*i,'.'); 
 
-# + {"scrolled": false}
-for i, t in enumerate(time):
-    print("{}:".format(round(t/us)),end=' ')
-    for j in range(M):
-        if out[j,i]:
-            print('{}'.format(make_event(j, 0, 5, 3)), end=' ')
-    print()
-# -
+def write_poisson_stim(time, spikes, file):
+    with open(file, 'w') as f:
+        for i, t in enumerate(time):
+            f.write('{}:'.format(round(t/us)))
+            for j in range(shape(spikes)[0]):
+                if spikes[j,i]:
+                    # this is currently specific, we can generalize it
+                    f.write('{} '.format(make_event(j, 0, 5, 3)))
+            if i<len(time)-1:
+                f.write('\n')
+
+
+write_poisson_stim(time,out,'vco_stim.txt')
 
 
