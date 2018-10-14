@@ -466,13 +466,17 @@ def poissonSpikeGen(rate=3*kHz, dt=100*us, t=1*second, num_neur=1):
     bins = int(t/dt)
     print(bins)
     output = rand(num_neur, bins) < rate*dt
-    time = arange(0,t-dt,dt)
+    time = arange(0,t,dt)
     return time, output
 
-time, out = poissonSpikeGen(rate=3*kHz, dt=100*us, t=2*second, num_neur=64)
+time, out = poissonSpikeGen(rate=3*kHz, dt=5*ms, t=2*second, num_neur=64)
 
 for i in range(M):
     plot(time,out[i]*i,'.'); 
+
+shape(out)
+
+sum(out[4])
 
 def write_poisson_stim(time, spikes, file):
     with open(file, 'w') as f:
