@@ -156,17 +156,17 @@ blair_inh.Vm = Vm_r
 exc2inh = Synapses(blair_exc, blair_inh, syn_eq, on_pre=presyn_eq)
 exc2inh.connect()
 exc2inh.Em = Em_vals[3]
-exc2inh.W = calc_weight(M,alpha,mu1,sigma).flatten()
+exc2inh.W = calc_weight(M,alpha,mu1,sigma).flatten()*fF
 
 inh2exc = Synapses(blair_inh, blair_exc, syn_eq, on_pre=presyn_eq)
 inh2exc.connect()
 inh2exc.Em = Em_vals[0]
-inh2exc.W  = calc_weight(M,alpha,mu2,sigma).flatten()
+inh2exc.W  = calc_weight(M,alpha,mu2,sigma).flatten()*fF
 
 inh2inh = Synapses(blair_inh, blair_inh, syn_eq, on_pre=presyn_eq)
 inh2inh.connect()
 inh2inh.Em = Em_vals[0]
-inh2inh.W = calc_weight(M,alpha,mu1,sigma).flatten()
+inh2inh.W = calc_weight(M,alpha,mu1,sigma).flatten()*fF
 # -
 
 PoisIn = PoissonGroup(M,rates=0*kHz)
@@ -187,7 +187,8 @@ ratecheck = StateMonitor(PoisIn, 'rates',record=True)
 #irate = PopulationRateMonitor(blair_inh[:1])
 
 store()
-poissonRates = arange(2.0,4.0,0.1)*kHz
+#poissonRates = arange(2.0,4.0,0.1)*kHz
+poissonRates = [3*kHz]
 
 # + {"scrolled": true}
 #rateOuts = zeros((4,20))
@@ -198,7 +199,7 @@ eRates47 = []; eRates47b = []; eRates47c = []
 
 # + {"scrolled": false}
 BrianLogger.suppress_hierarchy('brian2.codegen.generators.base')
-for thing in range(3):
+for thing in range(1):
     for poissonRate in poissonRates:
         restore()
         PoisIn.rates = poissonRate
@@ -222,7 +223,7 @@ for thing in range(3):
 # -
 
 figure(figsize=(8,6))
-plot(e_spmon.t/ms, e_spmon.i,'.'); xlim([5000,5250])
+plot(e_spmon.t/ms-5000, e_spmon.i,'.'); xlim([0,250])
 xlabel('Time (ms)')
 ylabel('Neuron index')
 
@@ -233,8 +234,9 @@ plot(erate00.t/second, erate00.smooth_rate(width=rateWidth)/Hz,
      erate47.t/second, erate47.smooth_rate(width=rateWidth)/Hz)
 xlim([2,6])
 
-# + {"scrolled": true}
+# + {"scrolled": false}
 idx = 32
+figure(figsize=(8,6))
 plot(e_vmon.t/ms-5000, e_vmon.Vm[idx]); xlim([0,250])
 scatter(e_spmon.t[e_spmon.i==idx]/ms-5000,3.65*ones(len(e_spmon.t[e_spmon.i==idx])),color='r')
 xlabel('Time (ms)')
@@ -302,8 +304,6 @@ grid()
 
 # ## Making Everything Easy for Bayo
 
-
-
 # +
 start_scope()
 
@@ -355,10 +355,10 @@ P1_rate = StateMonitor(P1, 'rates',record=True)
 run(10*second, report='text')
 
 plot(G1e_sp.t/ms,G1e_sp.i,'.')
-xlim([1000,1020])
+#xlim([1000,1020])
 
 plot(G1e_v.t/ms, G1e_v.Vm[0])
-xlim([1000,1010])
+#xlim([1000,1010])
 
 group1 = {'weights': W1_e2i, 'Em': 3, 'stype': 0, 'ttype': 1}
 group2 = {'weights': W1_i2e, 'Em': 0, 'stype': 1, 'ttype': 0}
@@ -394,7 +394,7 @@ def make_event(index, addr_x, wm, em_sel, wt=0, chip_sel=1, thr_switch=0, debug=
     col_sel = 1;
 
     row = int(index/num_cols);
-    col = int(index%num_rows);
+    col = int(index%num_cols)
     row_i = (row<<row_pos) & (0b11111<<row_pos);
     col_i = (col<<col_pos) & (0b11111<<col_pos);
     addrx_i = (addr_x<<addr_x_pos) & (0b11111<<addr_x_pos);
@@ -414,14 +414,35 @@ def make_event(index, addr_x, wm, em_sel, wt=0, chip_sel=1, thr_switch=0, debug=
 
     return out_event;
 
-def print_exc_syn2(group):
-    M = shape(group['weights'])
-    for i in range(M[0]):
-        print('{}:'.format(i+30*34*group['stype']), end='')
-        for j in range(M[1]):
-            if ~isnan(group['weights'][i,j]):
-                print(make_event(j, group['ttype'], int(group['weights'][i,j]/5), group['Em']), end=' ')
-        print()
+def read_ifat_spikes(file, runtime, dt):
+    dt = dt/second
+    with open(file, 'r') as f:
+        linecount = sum(1 for line in f)
+    #inds = np.zeros(linecount)
+    exc_sp = []
+    exc_t  = []
+    inh_sp = []
+    inh_t  = []
+    with open(file,'r') as f:
+        for idx, line in enumerate(f):
+            [row, col, addrx, count_hi, count_lo] = line.split()
+            if idx == 0:
+                offset_lo = int(count_lo)
+            neuron = int(row)*30 + int(col)
+            time = dt*(((1<<13)-1)*int(count_hi) + int(count_lo) - offset_lo)
+            
+            if int(addrx):
+                inh_sp.append(neuron)
+                inh_t.append(time)
+            else:
+                exc_sp.append(neuron)
+                exc_t.append(time)
+    return asarray(exc_sp), asarray(exc_t), asarray(inh_sp), asarray(inh_t)
+
+
+exc_sp, exc_t, _, _ = read_ifat_spikes('ifat_spikes.txt',300*ms,10*us)
+
+scatter(exc_t*second/ms, exc_sp)
 
 def write_exc_syn(group, file):
     M = shape(group['weights'])
@@ -436,16 +457,7 @@ def write_exc_syn(group, file):
 
 write_exc_syn(group1,'check_exc.txt')
 
-def print_inh_syn2(i2e,i2i):
-    M = shape(i2e['weights'])
-    for i in range(M[0]):
-        print('{}:'.format(i+30*34*i2e['stype']), end='')
-        for j in range(M[1]):
-            if ~isnan(i2e['weights'][i,j]):
-                print(make_event(j, i2e['ttype'], int(i2e['weights'][i,j]/5), i2e['Em']), end=' ')
-            if ~isnan(i2i['weights'][i,j]):
-                print(make_event(j, i2i['ttype'], int(i2i['weights'][i,j]/5), i2i['Em']), end=' ')
-        print()
+group3['Em']
 
 def write_inh_syn(i2e, i2i, file):
     M = shape(i2e['weights'])
@@ -462,23 +474,29 @@ def write_inh_syn(i2e, i2i, file):
 
 write_inh_syn(group2,group3,'check_inh.txt')
 
-def poissonSpikeGen(rate=3*kHz, dt=100*us, t=1*second, num_neur=1):
+def poissonSpikeGen(rate=3.0*kHz, dt=10.0*us, t=1*second, num_neur=1):
     bins = int(t/dt)
     print(bins)
     output = rand(num_neur, bins) < rate*dt
     time = arange(0,t,dt)
     return time, output
 
-time, out = poissonSpikeGen(rate=3*kHz, dt=5*ms, t=2*second, num_neur=64)
+bayo_dt = 75*us
+bayo_time = 150*ms
 
+time, out = poissonSpikeGen(rate=3*kHz, dt=bayo_dt, t=bayo_time, num_neur=64)
+
+# + {"scrolled": false}
 for i in range(M):
-    plot(time,out[i]*i,'.'); 
+    plot(time,out[i]*i,'.');
+#xlim([0,0.005])
 
-shape(out)
-
-sum(out[4])
+# + {"scrolled": true}
+print('Total number of Poisson spikes: {}'.format(sum(out)))
+# -
 
 def write_poisson_stim(time, spikes, file):
+    count = 0
     with open(file, 'w') as f:
         for i, t in enumerate(time):
             f.write('{}:'.format(round(t/us)))
@@ -486,10 +504,88 @@ def write_poisson_stim(time, spikes, file):
                 if spikes[j,i]:
                     # this is currently specific, we can generalize it
                     f.write('{} '.format(make_event(j, 0, 5, 3)))
+                    count += 1
             if i<len(time)-1:
                 f.write('\n')
+    print(count)
 
 
 write_poisson_stim(time,out,'vco_stim.txt')
+
+def make_spgen(timearray, spikes):
+    N = sum(out)
+    times = np.zeros(N)
+    indices = np.zeros(N)
+    count = 0
+    for idx, time in enumerate(timearray):
+        for ind in range(shape(spikes)[0]):
+            if spikes[ind, idx]:
+                times[count] = time/second
+                indices[count] = ind
+                count += 1
+    return times*second, indices
+
+times, indices = make_spgen(time, out)
+
+# +
+start_scope()
+defaultclock.dt = bayo_dt
+
+G1 = NeuronGroup(2*M, neuron_eq, threshold='Vm>Vt', reset=reset_eq, method='exact')
+G1.Vt = Vt_r
+G1.Vm = Vm_r
+G1_exc = G1[:M]
+G1_inh = G1[M:]
+
+G1_e2i = Synapses(G1_exc, G1_inh, syn_eq, on_pre=presyn_eq)
+W1_e2i = calc_weight(M,alpha,mu1,sigma)
+for ii in range(M):
+    for jj in range(M):
+        if ~isnan(W1_e2i[ii,jj]):
+            G1_e2i.connect(i=ii,j=jj)
+G1_e2i.Em = Em_vals[3]
+G1_e2i.W = W1_e2i[~isnan(W1_e2i)].flatten()*fF
+
+G1_i2e = Synapses(G1_inh, G1_exc, syn_eq, on_pre=presyn_eq)
+W1_i2e = calc_weight(M,alpha,mu2,sigma)
+for ii in range(M):
+    for jj in range(M):
+        if ~isnan(W1_i2e[ii,jj]):
+            G1_i2e.connect(i=ii,j=jj)
+G1_i2e.Em = Em_vals[0]
+G1_i2e.W = W1_i2e[~isnan(W1_i2e)].flatten()*fF
+
+G1_i2i = Synapses(G1_inh, G1_inh, syn_eq, on_pre=presyn_eq)
+W1_i2i = calc_weight(M,alpha,mu1,sigma)
+for ii in range(M):
+    for jj in range(M):
+        if ~isnan(W1_i2i[ii,jj]):
+            G1_i2i.connect(i=ii,j=jj)
+G1_i2i.Em = Em_vals[0]
+G1_i2i.W = W1_i2i[~isnan(W1_i2i)].flatten()*fF
+
+P1 = SpikeGeneratorGroup(M, indices, times, sorted=True)
+P1_syn = Synapses(P1, G1_exc, syn_eq, on_pre=presyn_eq)
+P1_syn.connect('j==i')
+P1_syn.Em = Em_vals[3]
+P1_syn.W = W_vals[2] + W_vals[0]
+
+G1e_sp = SpikeMonitor(G1_exc)
+G1i_sp = SpikeMonitor(G1_inh)
+G1e_v  = StateMonitor(G1_exc, 'Vm', record=True)
+G1i_v  = StateMonitor(G1_inh, 'Vm', record=True)
+# -
+
+run(bayo_time, report='text')
+
+# + {"scrolled": false}
+plot(G1e_sp.t/ms, G1e_sp.i,'.')
+#xlim([0,20])
+# -
+
+plot(G1i_sp.t/ms, G1i_sp.i,'.')
+#xlim([0,20])
+
+len(G1i_sp.t[G1i_sp.t/ms<23.4])+len(G1e_sp.t[G1e_sp.t/ms<23.4])
 
 

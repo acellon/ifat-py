@@ -193,8 +193,8 @@ path, vel = timedrandwalk2(v=0.01,dt=1*ms,time=10*second,size=0.5)
 plot(path[:,0],path[:,1])
 # -
 
-rundt = 20*ms
-runtime = 20*second
+rundt =5*ms
+runtime = 40*second
 path, vel = timedrandwalk2(v=0.005,dt=rundt,time=runtime,size=0.1)
 #path, vel = raster_path(0.1, 30*second, 1*ms)
 
@@ -363,10 +363,10 @@ xlim([3,4.5])
 
 plot(GRID_v.t/second, GRID_v.Vm[0]/volt)
 scatter(GRID_sp.t[GRID_sp.i==0]/second,4*ones(len(GRID_sp.t[GRID_sp.i==0])),marker='+',color='r')
-xlim([4,5])
+#xlim([4,5])
 
 # + {"scrolled": true}
-plot(GRID0_rate.t/second, GRID0_rate.smooth_rate(width=250*ms))
+plot(GRID0_rate.t/second, GRID0_rate.smooth_rate(width=200*ms))
 
 # + {"scrolled": false}
 times = np.zeros_like(path[:,0])
@@ -377,58 +377,224 @@ plot(path[:,0],path[:,1], zorder=1);
 scatter(path[:,0],path[:,1], s=times*10, color='C3', zorder=2)
 # -
 
-# # Rerun the following using newly generated Poisson inputs each time
+# # hoping for grid like pattern
 
-shape(GRID_sp.i)
+runtime/defaultclock.dt
 
+# + {"scrolled": false}
 spike_times = []
-nruns = 10
-avg_rates   = np.zeros((200000,nruns))
+nruns = 20
+size = int(runtime/defaultclock.dt)
+#avg_rates100 = np.zeros((int(runtime/defaultclock.dt),nruns))
+#avg_rates250 = np.zeros((100000,nruns))
+grid_rates = []
+
 for idx in range(nruns):
-    restore()
+    start_scope()
+
+    G1 = NeuronGroup(2*M, neuron_eq, threshold='Vm>Vt', reset=reset_eq, method='exact')
+    G1.Vt = Vt_r
+    G1.Vm = Vm_r
+    G1_exc = G1[:M]
+    G1_inh = G1[M:]
+
+    G1_e2i = Synapses(G1_exc, G1_inh, syn_eq, on_pre=presyn_eq)
+    G1_e2i.connect()
+    G1_e2i.Em = Em_vals[3]
+    G1_e2i.W = calc_weight(M,alpha,mu1,sigma).flatten()
+
+    G1_i2e = Synapses(G1_inh, G1_exc, syn_eq, on_pre=presyn_eq)
+    G1_i2e.connect()
+    G1_i2e.Em = Em_vals[0]
+    G1_i2e.W = calc_weight(M,alpha,mu2,sigma).flatten()
+
+    G1_i2i = Synapses(G1_inh, G1_inh, syn_eq, on_pre=presyn_eq)
+    G1_i2i.connect()
+    G1_i2i.Em = Em_vals[0]
+    G1_i2i.W = calc_weight(M,alpha,mu1,sigma).flatten()
+
+    P1_rates = '(3 + 20*veldot1(t))*kHz'
+    P1 = PoissonGroup(M,rates=P1_rates)
+    P1_syn = Synapses(P1, G1_exc, syn_eq, on_pre=presyn_eq)
+    P1_syn.connect('j==i')
+    P1_syn.Em = Em_vals[3]
+    P1_syn.W = W_vals[2] + W_vals[0]
+
+    #G1e_sp = SpikeMonitor(G1_exc)
+    #P1_rate = StateMonitor(P1, 'rates',record=True)
+
+    G2 = NeuronGroup(2*M, neuron_eq, threshold='Vm>Vt', reset=reset_eq, method='exact')
+    G2.Vt = Vt_r
+    G2.Vm = Vm_r
+    G2_exc = G2[:M]
+    G2_inh = G2[M:]
+
+    G2_e2i = Synapses(G2_exc, G2_inh, syn_eq, on_pre=presyn_eq)
+    G2_e2i.connect()
+    G2_e2i.Em = Em_vals[3]
+    G2_e2i.W = calc_weight(M,alpha,mu1,sigma).flatten()
+
+    G2_i2e = Synapses(G2_inh, G2_exc, syn_eq, on_pre=presyn_eq)
+    G2_i2e.connect()
+    G2_i2e.Em = Em_vals[0]
+    G2_i2e.W = calc_weight(M,alpha,mu2,sigma).flatten()
+
+    G2_i2i = Synapses(G2_inh, G2_inh, syn_eq, on_pre=presyn_eq)
+    G2_i2i.connect()
+    G2_i2i.Em = Em_vals[0]
+    G2_i2i.W = calc_weight(M,alpha,mu1,sigma).flatten()
+
+    P2_rates = '(3 + 20*veldot2(t))*kHz'
+    P2 = PoissonGroup(M,rates=P2_rates)
+    P2_syn = Synapses(P2, G2_exc, syn_eq, on_pre=presyn_eq)
+    P2_syn.connect('j==i')
+    P2_syn.Em = Em_vals[3]
+    P2_syn.W = W_vals[2] + W_vals[0]
+
+    #G2e_sp = SpikeMonitor(G2_exc)
+    #P2_rate = StateMonitor(P2, 'rates',record=True)
+
+    G3 = NeuronGroup(2*M, neuron_eq, threshold='Vm>Vt', reset=reset_eq, method='exact')
+    G3.Vt = Vt_r
+    G3.Vm = Vm_r
+    G3_exc = G3[:M]
+    G3_inh = G3[M:]
+
+    G3_e2i = Synapses(G3_exc, G3_inh, syn_eq, on_pre=presyn_eq)
+    G3_e2i.connect()
+    G3_e2i.Em = Em_vals[3]
+    G3_e2i.W = calc_weight(M,alpha,mu1,sigma).flatten()
+
+    G3_i2e = Synapses(G3_inh, G3_exc, syn_eq, on_pre=presyn_eq)
+    G3_i2e.connect()
+    G3_i2e.Em = Em_vals[0]
+    G3_i2e.W = calc_weight(M,alpha,mu2,sigma).flatten()
+
+    G3_i2i = Synapses(G3_inh, G3_inh, syn_eq, on_pre=presyn_eq)
+    G3_i2i.connect()
+    G3_i2i.Em = Em_vals[0]
+    G3_i2i.W = calc_weight(M,alpha,mu1,sigma).flatten()
+
+    P3_rates = '(3 + 20*veldot3(t))*kHz'
+    P3 = PoissonGroup(M,rates=P3_rates)
+    P3_syn = Synapses(P3, G3_exc, syn_eq, on_pre=presyn_eq)
+    P3_syn.connect('j==i')
+    P3_syn.Em = Em_vals[3]
+    P3_syn.W = W_vals[2] + W_vals[0]
+
+    #G3e_sp = SpikeMonitor(G3_exc)
+    #P3_rate = StateMonitor(P3, 'rates',record=True)
+
+    GRID = NeuronGroup(3, neuron_eq, threshold='Vm>Vt', reset=reset_eq, method='exact')
+    GRID.Vt = Vt_r
+    GRID.Vm = Vm_r
+    GRID0 = GRID[:1]
+    GRID1 = GRID[1:2]
+    GRID2 = GRID[2:]
+
+    G1_GRID0 = Synapses(G1_exc, GRID0, syn_eq, on_pre=presyn_eq)
+    G1_GRID0.connect()
+    G1_GRID0.Em = Em_vals[3]
+    G1_GRID0.W = calc_weight_grid(M, alpha/3, 0, 1*sigma)
+
+    G2_GRID0 = Synapses(G2_inh, GRID0, syn_eq, on_pre=presyn_eq)
+    G2_GRID0.connect()
+    G2_GRID0.Em = Em_vals[0]
+    G2_GRID0.W = calc_weight_grid(M, alpha/1, pi, 1*sigma)
+
+    G3_GRID0 = Synapses(G3_exc, GRID0, syn_eq, on_pre=presyn_eq)
+    G3_GRID0.connect()
+    G3_GRID0.Em = Em_vals[3]
+    G3_GRID0.W = calc_weight_grid(M, alpha/3, 0, 1*sigma)
+
+    GRID_sp = SpikeMonitor(GRID)
+    GRID_v = StateMonitor(GRID, 'Vm', record=True)
+    GRID0_rate = PopulationRateMonitor(GRID0)
+
     print('Run {}/{}...'.format(idx+1,nruns))
     run(runtime, report='text')
     spike_times.append(GRID_sp)
-    avg_rates[:,idx] = GRID0_rate.smooth_rate(width=100*ms)
-
-meanrate = mean(avg_rates,axis=1)
-
-for i in range(10):
-    plot(spike_times[i].t/second,i+spike_times[i].i,'.')
-xlim([0,4])
-
-# + {"scrolled": true}
-plot(GRID_sp.t/second, GRID_sp.i,'.')
+    grid_rates.append(GRID0_rate)
+    #avg_rates100[:,idx] = GRID0_rate.smooth_rate(width=100*ms)
+    #avg_rates250[:,idx] = GRID0_rate.smooth_rate(width=250*ms)
 # -
 
-plot(G1e_sp.t/second, G1e_sp.i,'.')
-#xlim([20,20.3])
+for j in range(nruns):
+    plot(spike_times[j].t/second,1.0*j+spike_times[j].i,'.')
+#xlim([2.572,2.574])
+grid()
 
-plot(P1_rate.t/second, P1_rate.rates[0]/kHz,
-     P2_rate.t/second, P2_rate.rates[0]/kHz,
-     P3_rate.t/second, P3_rate.rates[0]/kHz)
+shape(GRID0_rate.t)
 
-plot(G1e_sp.t/second, G1e_sp.i,'.C0',
-     G2e_sp.t/second, G2e_sp.i,'.C1',
-     G3e_sp.t/second, G3e_sp.i,'.C2',
-     GRID_sp.t/second, GRID_sp.i-5,'+C3')
-#xlim([33.2,33.4])
-xlim([4,5.5])
+output = np.zeros(shape(GRID0_rate.t))
+for idx, t in enumerate(GRID0_rate.t):
+    for j in range(nruns):
+        if (spike_times[j].t == t).any():
+            #output[idx] += spike_times[j].i[spike_times[j].t == t]
+            output[idx] += 1
 
-times = np.zeros_like(strt_path[:,0])
-times[np.array(GRID_sp.t/(rundt),dtype=int)] = 1
-time = np.arange(0,runtime,rundt)
+# + {"scrolled": true}
+plot(GRID0_rate.t/second, output,'.')
+#xlim([2.572,2.574])
+# -
+
+def moving_average(a, n=3) :
+    ret = np.cumsum(a, dtype=float)
+    ret[n:] = ret[n:] - ret[:-n]
+    return ret[n - 1:] / n
+
+check = moving_average(output,5000)
+
+plot(check)
+
+check = np.zeros_like(avg_rates100[:,0])
+for ratemon in grid_rates:
+    check += ratemon.smooth_rate(width=20*ms)
+
+plot(GRID0_rate.t/second,check)
+
+# + {"scrolled": false}
+for j in range(nruns):
+    plot(GRID0_rate.t/second, avg_rates100[:,j])
+# -
+
+for j in range(nruns):
+    plot(GRID0_rate.t/second, avg_rates250[:,j])
+
+plot(GRID0_rate.t/second, mean(avg_rates100,axis=1),GRID0_rate.t/second, mean(avg_rates250,axis=1))
+#xlim([10,20])
+
+shape(path[:,0])
+
+# +
 figure(figsize=(8,8))
-plot(time,zeros_like(strt_path[:,0]), zorder=1);
-scatter(time,zeros_like(strt_path[:,0]), s=times*10, color='C3', zorder=2)
-#plot(time,cumsum(times)/mean(times))
-plot(GRID0_rate.t/second, GRID0_rate.smooth_rate(width=100*ms))
-xlim([1,10])
-#ylim([-1,1])
+plot(path[:,0],path[:,1], zorder=1);
 
-plot(GRID0_rate.t/second, GRID0_rate.smooth_rate(width=300*ms))
-#xlim([40,50])
+times = np.zeros((8000,nruns))
+for j in range(nruns):
+    times[np.array(spike_times[j].t/(rundt),dtype=int),j] = 1
+    scatter(path[:,0],path[:,1], s=times[:,j]*10, color='C1', zorder=2)
+#scatter(path[:,0],path[:,1], s=times*10, color='C1', zorder=2)
+# -
 
+x = linspace(0,0.1,1000)
+y = linspace(0,0.1,1000)
 
+xx,yy = meshgrid(x,y)
+
+sumtimes = sum(times,axis=1)
+
+x = []
+y = []
+numsp = []
+for timestep in range(8000):
+    if sumtimes[timestep]:
+        x.append(path[timestep,0])
+        y.append(path[timestep,1])
+        numsp.append(sumtimes[timestep])
+
+# + {"scrolled": true}
+scatter(x,y,s=numsp)
+# -
 
 
