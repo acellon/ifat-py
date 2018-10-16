@@ -414,6 +414,8 @@ def make_event(index, addr_x, wm, em_sel, wt=0, chip_sel=1, thr_switch=0, debug=
 
     return out_event;
 
+2<<13
+
 def read_ifat_spikes(file, runtime, dt):
     dt = dt/second
     with open(file, 'r') as f:
@@ -429,7 +431,7 @@ def read_ifat_spikes(file, runtime, dt):
             if idx == 0:
                 offset_lo = int(count_lo)
             neuron = int(row)*30 + int(col)
-            time = dt*(((1<<13)-1)*int(count_hi) + int(count_lo) - offset_lo)
+            time = dt*(((1<<13)-1)*int(count_hi) + int(count_lo))# - offset_lo)
             
             if int(addrx):
                 inh_sp.append(neuron)
@@ -440,19 +442,29 @@ def read_ifat_spikes(file, runtime, dt):
     return asarray(exc_sp), asarray(exc_t), asarray(inh_sp), asarray(inh_t)
 
 
-exc_sp, exc_t, inh_sp, inh_t = read_ifat_spikes('ifat_spikes (2).txt',300*ms,10*us)
+exc_sp, exc_t, inh_sp, inh_t = read_ifat_spikes('ifat_spikes_1037am.txt',300*ms,20*us)
 
 # ### IFAT Excitatory response (x axis time in ms, y axis index)
 # probably... may be something wrong in encoding/decoding events
 
 # + {"scrolled": false}
-scatter(exc_t*second/ms, exc_sp)
+scatter(exc_t[exc_sp<100]*second/(9*ms), exc_sp[exc_sp<100])
+#scatter(exc_t*second/(9*ms), exc_sp)
 # -
 
 # ### IFAT Inhibitory response (same, same)
-# That point in the top right corner is weird... way after the others and with a bonkers index
 
-scatter(inh_t*second/ms, inh_sp); ylim([0,64])
+# +
+#inh_t_pos = inh_t[inh_t>=0]; inh_sp_pos = inh_sp[inh_t>=0]
+#scatter(inh_t_pos[inh_sp_pos<100]*second/(9*ms), inh_sp_pos[inh_sp_pos<100])
+scatter(inh_t[inh_sp<100]*second/(9*ms), inh_sp[inh_sp<100])
+#scatter(inh_t*second/(9*ms), inh_sp)
+xlabel('Time (ms)')
+ylabel('Neuron index')
+axvline(x=75,LineStyle='--',color='C1')
+
+#ylim([0,64])
+# -
 
 def write_exc_syn(group, file):
     M = shape(group['weights'])
@@ -494,15 +506,26 @@ def poissonSpikeGen(rate=3.0*kHz, dt=10.0*us, t=1*second, num_neur=1):
 bayo_dt = 75*us
 bayo_time = 150*ms
 
-time, out = poissonSpikeGen(rate=3*kHz, dt=bayo_dt, t=bayo_time, num_neur=64)
+time, out = poissonSpikeGen(rate=2*kHz, dt=bayo_dt, t=bayo_time/2, num_neur=64)
 
-# + {"scrolled": false}
-for i in range(M):
-    plot(time,out[i]*i,'.');
-#xlim([0,0.005])
+time2, out2 = poissonSpikeGen(rate=4*kHz, dt=bayo_dt, t=bayo_time/2, num_neur=64)
 
 # + {"scrolled": true}
-print('Total number of Poisson spikes: {}'.format(sum(out)))
+time3 = time2/second + bayo_time/(2*second)
+# -
+
+timez = concatenate((time,time3))*second
+outz = concatenate((out, out2),axis=1)
+
+shape(outz)
+
+# + {"scrolled": true}
+for i in range(M):
+    plot(timez,outz[i]*i,'.');
+#xlim([0,0.005])
+
+# + {"scrolled": false}
+print('Total number of Poisson spikes: {}'.format(sum(outz)))
 # -
 
 def write_poisson_stim(time, spikes, file):
@@ -520,10 +543,12 @@ def write_poisson_stim(time, spikes, file):
     print(count)
 
 
-write_poisson_stim(time,out,'vco_stim.txt')
+# + {"scrolled": false}
+write_poisson_stim(timez, outz,'vco_stim.txt')
+# -
 
 def make_spgen(timearray, spikes):
-    N = sum(out)
+    N = sum(spikes)
     times = np.zeros(N)
     indices = np.zeros(N)
     count = 0
@@ -535,7 +560,7 @@ def make_spgen(timearray, spikes):
                 count += 1
     return times*second, indices
 
-times, indices = make_spgen(time, out)
+times, indices = make_spgen(timez, outz)
 
 # +
 start_scope()
@@ -566,7 +591,7 @@ G1_i2e.Em = Em_vals[0]
 G1_i2e.W = W1_i2e[~isnan(W1_i2e)].flatten()*fF
 
 G1_i2i = Synapses(G1_inh, G1_inh, syn_eq, on_pre=presyn_eq)
-W1_i2i = calc_weight(M,alpha,mu1,sigma)
+W1_i2i = calc_weight(M,alpha/2,mu1,sigma)
 for ii in range(M):
     for jj in range(M):
         if ~isnan(W1_i2i[ii,jj]):
@@ -592,14 +617,17 @@ run(bayo_time, report='text')
 
 # + {"scrolled": true}
 plot(G1e_sp.t/ms, G1e_sp.i,'.')
+xlabel('Time (ms)')
+ylabel('Neuron index')
 #xlim([0,20])
 # -
 
 # ### Simulated Inhibitory Response (x axis time, y axis neuron index)
 
 plot(G1i_sp.t/ms, G1i_sp.i,'.')
+axvline(x=75,LineStyle='--',color='C1')
+xlabel('Time (ms)')
+ylabel('Neuron index')
 #xlim([0,20])
-
-len(G1i_sp.t[G1i_sp.t/ms<23.4])+len(G1e_sp.t[G1e_sp.t/ms<23.4])
 
 
