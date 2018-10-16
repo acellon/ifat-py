@@ -440,9 +440,19 @@ def read_ifat_spikes(file, runtime, dt):
     return asarray(exc_sp), asarray(exc_t), asarray(inh_sp), asarray(inh_t)
 
 
-exc_sp, exc_t, _, _ = read_ifat_spikes('ifat_spikes.txt',300*ms,10*us)
+exc_sp, exc_t, inh_sp, inh_t = read_ifat_spikes('ifat_spikes (2).txt',300*ms,10*us)
 
+# ### IFAT Excitatory response (x axis time in ms, y axis index)
+# probably... may be something wrong in encoding/decoding events
+
+# + {"scrolled": false}
 scatter(exc_t*second/ms, exc_sp)
+# -
+
+# ### IFAT Inhibitory response (same, same)
+# That point in the top right corner is weird... way after the others and with a bonkers index
+
+scatter(inh_t*second/ms, inh_sp); ylim([0,64])
 
 def write_exc_syn(group, file):
     M = shape(group['weights'])
@@ -578,10 +588,14 @@ G1i_v  = StateMonitor(G1_inh, 'Vm', record=True)
 
 run(bayo_time, report='text')
 
-# + {"scrolled": false}
+# ### Simulated Excitatory Response (x axis time, y axis neuron index)
+
+# + {"scrolled": true}
 plot(G1e_sp.t/ms, G1e_sp.i,'.')
 #xlim([0,20])
 # -
+
+# ### Simulated Inhibitory Response (x axis time, y axis neuron index)
 
 plot(G1i_sp.t/ms, G1i_sp.i,'.')
 #xlim([0,20])
