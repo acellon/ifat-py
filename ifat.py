@@ -120,8 +120,8 @@ flt  = 0 * MHz
 Cst  = 0 * fF
 
 N = 4
-# -
 
+# +
 start_scope()
 defaultclock.dt = 0.2 * us
 
@@ -130,11 +130,9 @@ test = NeuronGroup(N, neuron_eq, threshold='Vm > Vt', reset=reset_eq, method='ex
 test.Vm = Vm_r
 test.Vt = Vt_r
 
-# +
 bg_rate = 6*kHz
 bg_spk_times = np.arange(0,0.1,Hz/bg_rate) * second
 bg_spk_inds  = np.zeros_like(bg_spk_times)
-#bg_spks = PoissonGroup(1,rates=bg_rate)
 bg_spks = SpikeGeneratorGroup(1,bg_spk_inds,bg_spk_times)
 
 bg_syn = Synapses(bg_spks, test, syn_eq, on_pre=presyn_eq)
@@ -143,19 +141,8 @@ bg_syn.delay = "j * 0.2 * us"
 bg_syn.Em = Em_vals[2]
 bg_syn.W  = W_vals[3] + W_vals[2] + W_vals[0]
 
-# inp_rate = 500 * Hz
-# inp_spk_times = np.arange(0,0.1,Hz/inp_rate) * second
-# inp_spk_inds  = np.zeros_like(inp_spk_times)
-# inp_spks = SpikeGeneratorGroup(1, inp_spk_inds, inp_spk_times)
-
-# inp_syn = Synapses(inp_spks, test, syn_eq, on_pre=presyn_eq)
-# inp_syn.connect()
-# inp_syn.Em = Em_vals[2]
-# inp_syn.W  = sum(W_vals)
-
 exc_syn = Synapses(test, test, syn_eq, on_pre=presyn_eq)
 exc_syn.connect('j==((i+1)%(4))')
-#exc_syn.connect('j==i')
 exc_syn.Em = Em_vals[3]
 exc_syn.W  = sum(W_vals[0:2])
 
@@ -165,19 +152,17 @@ inh_syn.connect('j==((i+3)%4)')
 inh_syn.Em = Em_vals[0]
 inh_syn.W  = sum(W_vals)*2
 
-# +
-#visualize_connectivity(inh_syn)
-
-# +
-#visualize_connectivity(exc_syn)
-# -
-
 sp_mon = SpikeMonitor(test)
 vm_mon = StateMonitor(test, 'Vm', record=True, dt=0.1*ms)
 vt_mon = StateMonitor(test, 'Vt', record=True, dt=0.1*ms)
 ratemon = PopulationRateMonitor(test)
 
+# +
+#visualize_connectivity(inh_syn)
+#visualize_connectivity(exc_syn)
+
 # + {"scrolled": false}
+BrianLogger.suppress_hierarchy('brian2.codegen.generators.base')
 run(100*ms,report='text')
 
 # + {"scrolled": true}
@@ -194,47 +179,6 @@ ylim([0,4])
 plot(sp_mon.t, sp_mon.i, '.g'); #xlim([0.062,0.082]);
 
 plot(ratemon.t/ms, ratemon.smooth_rate(width=10*ms)/Hz)
-
-len(sp_mon.i[sp_mon.i==0])
-
-# ## Trying the Zilli & Hasselmo Approach
-# Above, we're able to get a sort of ring oscillator concept working. Below, we'll try the Zilli and Hasselmo approach of coupling "noisy cells" to form an oscillator (where we work out the interpolated Frequency/Input curve to find the necessary inputs)
-
-start_scope()
-
-zilli = NeuronGroup(100, neuron_eq, threshold='Vm>Vt', reset=reset_eq, method='exact')
-
-zilli.Vm = Vm_r
-zilli.Vt = Vt_r
-
-zilli_syn = Synapses(zilli, zilli, syn_eq, on_pre=presyn_eq)
-zilli_syn.connect()
-zilli_syn.Em = Em_vals[3]
-zilli_syn.W = sum(W_vals)
-
-# +
-stim_rate = 300*Hz
-stim_spk_times = np.arange(0,0.2,Hz/stim_rate) * second
-stim_spk_inds  = np.zeros_like(stim_spk_times)
-stim_spks = PoissonGroup(1,rates=stim_rate)
-#stim_spks = SpikeGeneratorGroup(1,stim_spk_inds,stim_spk_times)
-
-stim_syn = Synapses(stim_spks, zilli, syn_eq, on_pre=presyn_eq)
-stim_syn.connect()
-stim_syn.delay = "j * 0.2 * us"
-stim_syn.Em = Em_vals[3]
-stim_syn.W  = W_vals[3] + W_vals[2] + W_vals[0]
-# -
-
-zspmon = SpikeMonitor(zilli)
-zmon = PopulationRateMonitor(zilli)
-
-run(0.2*second, report='text')
-
-subplot(121)
-plot(zspmon.t/ms, zspmon.i,'.')
-subplot(122)
-plot(zmon.t/ms, zmon.smooth_rate(width=10*ms))
 
 # ## Trying the *Other* Tad Blair approach
 
@@ -257,7 +201,9 @@ mu3 = pi
 sigma = 25 * pi/180
 fF = 0.001 * pF
 
-start_scope();# defaultclock.dt = 0.1*ms;
+# +
+start_scope()
+defaultclock.dt = 0.1*ms;
 
 blair_exc = NeuronGroup(M, neuron_eq, threshold='Vm>Vt', reset=reset_eq, method='exact')
 blair_inh = NeuronGroup(M, neuron_eq, threshold='Vm>Vt', reset=reset_eq, method='exact')
@@ -267,13 +213,11 @@ blair_inh.Vt = Vt_r
 blair_exc.Vm = Vm_r
 blair_inh.Vm = Vm_r
 
-# +
 exc2inh = Synapses(blair_exc, blair_inh, syn_eq, on_pre=presyn_eq)
 exc2inh.connect()
 exc2inh.Em = Em_vals[3]
 
 exc2inh.W = calc_weight(M,alpha,mu1,sigma).flatten()
-# -
 
 inh2exc = Synapses(blair_inh, blair_exc, syn_eq, on_pre=presyn_eq)
 inh2exc.connect()
@@ -285,7 +229,7 @@ inh2inh.connect()
 inh2inh.Em = Em_vals[0]
 inh2inh.W = calc_weight(M,alpha,mu1,sigma).flatten()
 
-PoisIn = PoissonGroup(M,rates=2.6*kHz)
+PoisIn = PoissonGroup(M,rates=3*kHz)
 
 p2exc = Synapses(PoisIn, blair_exc, syn_eq, on_pre=presyn_eq)
 p2exc.connect('j==i')
@@ -305,17 +249,29 @@ irate = PopulationRateMonitor(blair_inh[:1])
 run(10*second,report='text')
 # -
 
-figure(figsize=(8,6))
-plot(e_spmon.t/second, e_spmon.i,'.'); #xlim([0.2,0.4])
+plot(e_spmon.t/second, e_spmon.i,'.'); xlim([0.4,0.8])
+xlabel('Time (s)')
+ylabel('Neuron index')
 
+plot(e_vmon.t, e_vmon.Vm[0]); xlim([0.4,0.8])
+scatter(e_spmon.t[e_spmon.i==0],3.65*ones(len(e_spmon.t[e_spmon.i==0])),color='r')
+xlabel('Time (s)')
+ylabel('Membrane voltage (V)')
+
+# +
 rateWidth = 200 * ms
+
+figure(figsize=(10,4))
+subplot(121)
 plot(erate0.t/second,   erate0.smooth_rate(width=rateWidth),
      erate1.t/second,   erate1.smooth_rate(width=rateWidth),
      erate10.t/second, erate10.smooth_rate(width=rateWidth),
      erate20.t/second, erate20.smooth_rate(width=rateWidth))#,
-    # irate.t/second,     irate.smooth_rate(width=rateWidth))#
-
+title('Excitatory Rates');
+subplot(122)
 plot(irate.t/second,irate.smooth_rate(width=100*ms))
+title('Inhibitory Rate');
+# -
 
 fig, axs = subplots(3,1,figsize=(6,12),sharex='all',sharey='all')
 axs[0].scatter(exc2inh.i,exc2inh.j,s=exc2inh.W/(25*fF))
@@ -329,11 +285,7 @@ axs[2].set_xlabel(r'Presynaptic Neuron Index')
 axs[2].scatter(inh2exc.i,inh2exc.j,s=inh2exc.W/(25*fF))
 axs[2].plot(arange(M),arange(M),'--r')
 axs[2].set_title(r'Inhibitory $\rightarrow$ Excitatory')
-#suptitle(r'Synaptic Weights (Blair et al., 2014)', fontsize=16, y=1.05)
 tight_layout()
-
-plot(e_vmon.t, e_vmon.Vm[0]); xlim([0.2,0.4])
-scatter(e_spmon.t[e_spmon.i==0],3.65*ones(len(e_spmon.t[e_spmon.i==0])),color='r')
 
 
 
