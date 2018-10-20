@@ -297,7 +297,7 @@ G1_i2e.Em = Em_vals[0]
 G1_i2e.W = W1_i2e[~isnan(W1_i2e)].flatten()*fF
 
 G1_i2i = Synapses(G1_inh, G1_inh, syn_eq, on_pre=presyn_eq)
-W1_i2i = calc_weight(M,alpha/2,mu1,sigma)
+W1_i2i = calc_weight(M,alpha,mu1,sigma)
 for ii in range(M):
     for jj in range(M):
         if ~isnan(W1_i2i[ii,jj]):
@@ -329,31 +329,34 @@ ylabel('Neuron index')
 
 subplot(122)
 plot(G1i_sp.t/ms, G1i_sp.i,'.')
-axvline(x=75,LineStyle='--',color='C1')
+axvline(x=150,LineStyle='--',color='C1')
 xlabel('Time (ms)')
 ylabel('Neuron index')
 #xlim([0,20])
 # -
 
+len(G1e_sp) + len(G1i_sp)
+
 # ## Load Outputs and Plot
 
 # +
-exc_sp, exc_t, inh_sp, inh_t = read_ifat_spikes('ifat_out/ifat_spikes_great_inh.txt',20*us)
+exc_sp, exc_t, inh_sp, inh_t = read_ifat_spikes('ifat_out/ifat_spikes_150ms_take2.txt',100*us)
 
 figure(figsize=(10,4))
 subplot(121)
-plot(exc_t[exc_sp<100]*second/(ms), exc_sp[exc_sp<100],'.')
-#catter(exc_t*second/(9*ms), exc_sp)
-
+#plot(exc_t[exc_sp<100]*second/(ms), exc_sp[exc_sp<100],'.')
+plot(exc_t*second/(ms), exc_sp,'.')
+xlim(0,1000)
 subplot(122)
 #inh_t_pos = inh_t[inh_t>=0]; inh_sp_pos = inh_sp[inh_t>=0]
 #scatter(inh_t_pos[inh_sp_pos<100]*second/(9*ms), inh_sp_pos[inh_sp_pos<100])
-plot(inh_t[inh_sp<100]*second/(8.5*ms), inh_sp[inh_sp<100],'.')
-#catter(inh_t*second/(9*ms), inh_sp)
+#plot(inh_t[inh_sp<100]*second/(8.5*ms), inh_sp[inh_sp<100],'.')
+plot(inh_t*second/(ms), inh_sp,'.')
 xlabel('Time (ms)')
 ylabel('Neuron index')
-axvline(x=75,LineStyle='--',color='C1')
+#axvline(x=75,LineStyle='--',color='C1')
 #ylim([0,64])
+#xlim([0,1000])
 # -
 
 max(inh_t*second/(8.45*ms))
@@ -370,5 +373,7 @@ write_inh_syn(group2, group3, 'vco_conn.txt', append=True)
 
 write_poisson_stim(time, out, 'vco_stim.txt')
 # -
+
+
 
 
