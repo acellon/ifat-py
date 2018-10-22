@@ -15,7 +15,7 @@
 #     name: python
 #     nbconvert_exporter: python
 #     pygments_lexer: ipython3
-#     version: 3.6.4
+#     version: 3.6.0
 # ---
 
 # # IFAT Interface Notebook
@@ -107,15 +107,25 @@ def read_ifat_spikes(file, dt):
     exc_t  = []
     inh_sp = []
     inh_t  = []
+    rollover_cnt = 0
+    last_hi = 0
+    offset = 0
+    MAXLO = (1<<13)-1
+    MAXBOTH = (1<<16)-1
     with open(file,'r') as f:
         for idx, line in enumerate(f):
-            [row, col, addrx, count_hi, count_lo] = line.split()
+            [row, col, addrx, count_hi, count_lo] = list(map(int,line.split()))
+            if count_hi < last_hi:
+                rollover_cnt += 1
+                print(rollover_cnt)
+            last_hi = count_hi
+            neuron = row*30 + col
+            raw_time = MAXLO*count_hi + count_lo
             if idx == 0:
-                offset_lo = int(count_lo)
-            neuron = int(row)*30 + int(col)
-            time = dt*(((1<<13)-1)*int(count_hi) + int(count_lo))# - offset_lo)
+                offset = raw_time
+            time = dt/second * (raw_time - offset + rollover_cnt*MAXBOTH)
             
-            if int(addrx):
+            if addrx:
                 inh_sp.append(neuron)
                 inh_t.append(time)
             else:
@@ -251,7 +261,7 @@ mu3 = pi
 sigma = 36 * pi/180
 # -
 
-bayo_dt = 75*us
+bayo_dt = 50*us
 bayo_time = 150*ms
 
 # +
@@ -268,7 +278,7 @@ print('Total number of Poisson spikes: {}'.format(sum(out)))
 
 times, indices = make_spgen(time, out)
 
-# +
+# + {"scrolled": false}
 start_scope()
 defaultclock.dt = bayo_dt
 
@@ -329,7 +339,7 @@ ylabel('Neuron index')
 
 subplot(122)
 plot(G1i_sp.t/ms, G1i_sp.i,'.')
-axvline(x=150,LineStyle='--',color='C1')
+axvline(x=75,LineStyle='--',color='C1')
 xlabel('Time (ms)')
 ylabel('Neuron index')
 #xlim([0,20])
@@ -340,26 +350,17 @@ len(G1e_sp) + len(G1i_sp)
 # ## Load Outputs and Plot
 
 # +
-exc_sp, exc_t, inh_sp, inh_t = read_ifat_spikes('ifat_out/ifat_spikes_150ms_take2.txt',100*us)
+exc_sp, exc_t, inh_sp, inh_t = read_ifat_spikes('ifat_spikes_sat.txt',100*us)
 
 figure(figsize=(10,4))
-subplot(121)
-#plot(exc_t[exc_sp<100]*second/(ms), exc_sp[exc_sp<100],'.')
-plot(exc_t*second/(ms), exc_sp,'.')
-xlim(0,1000)
-subplot(122)
-#inh_t_pos = inh_t[inh_t>=0]; inh_sp_pos = inh_sp[inh_t>=0]
-#scatter(inh_t_pos[inh_sp_pos<100]*second/(9*ms), inh_sp_pos[inh_sp_pos<100])
-#plot(inh_t[inh_sp<100]*second/(8.5*ms), inh_sp[inh_sp<100],'.')
-plot(inh_t*second/(ms), inh_sp,'.')
-xlabel('Time (ms)')
-ylabel('Neuron index')
+fig, axs = subplots(1,2,figsize=(10,4),sharex=True,sharey=True)
+axs[0].plot(exc_t*second/(ms), exc_sp,'.')
+axs[1].plot(inh_t*second/(ms), inh_sp,'.')
 #axvline(x=75,LineStyle='--',color='C1')
 #ylim([0,64])
-#xlim([0,1000])
+#xlim([20000,40000])
+tight_layout()
 # -
-
-max(inh_t*second/(8.45*ms))
 
 # ## Output connectivity and stim files
 
