@@ -15,7 +15,7 @@
 #     name: python
 #     nbconvert_exporter: python
 #     pygments_lexer: ipython3
-#     version: 3.6.4
+#     version: 3.6.7
 # ---
 
 # +
@@ -52,9 +52,6 @@ if MODE == 'adaptive':
     neuron_eq = '''
         dVm/dt = ((glm + gpar) / Cm) * (Vm_r - Vm)  : volt
         dVt/dt = ((glt + gpar) / Ct) * (Vt_r - Vt)  : volt
-        
-        # dVm/dt = (glm / Cm) * (Vm_r - Vm) : volt
-        # dVt/dt = (glt / Ct) * (Vt_r - Vt) : volt
 
         glm = flm * Cl                              : siemens
         glt = flt * Cl                              : siemens
